@@ -34,6 +34,7 @@
         /* SIDEBAR DE NAVIGATION LATÉRALE */
         aside { 
             width: 260px; 
+            min-width: 260px;
             background-color: var(--4race-sidebar); 
             border-right: 1px solid var(--4race-card-border); 
             display: flex; 
@@ -41,7 +42,12 @@
             justify-content: space-between;
             padding: 20px;
             z-index: 100;
-            transition: all 0.3s ease;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Quand on cache la sidebar */
+        aside.collapsed {
+            margin-left: -260px;
         }
         
         .logo-area { padding-bottom: 25px; border-bottom: 1px solid var(--4race-card-border); }
