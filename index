@@ -384,7 +384,7 @@
         // 🔒 CONFIGURATION DE VOTRE NOUVELLE BASE DE DONNÉES (BAC À SABLE SÉCURISÉ)
         // =======================================================================
         const firebaseConfig = {
-            databaseURL: "https://live-4-race-default-rtdb.europe-west1.firebasedatabase.app/" // Remplacer par l'URL de votre nouvelle base !
+            databaseURL: "https://dashfuncup-4-race-default-rtdb.europe-west1.firebasedatabase.app/" // Remplacer par l'URL de votre nouvelle base !
         };
 
         const app = initializeApp(firebaseConfig);
