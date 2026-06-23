@@ -178,7 +178,6 @@
         /* POPUP ACCES SÉCURISÉ */
         .popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
         .popup-box { background: var(--4race-card); border: 2px solid var(--4race-coral); padding: 40px; border-radius: 12px; text-align: center; width: 90%; max-width: 400px; }
-        
     </style>
 </head>
 <body>
@@ -211,7 +210,6 @@
     </aside>
 
     <div class="main-container">
-        
         <header id="app-header">
             <div class="race-control-center">
                 <div id="trackState" class="ctrl-btn btn-track" onclick="dbToggleTrackState()">🟢 Piste Dégagée</div>
@@ -233,8 +231,7 @@
         </div>
 
         <div id="page-fleet" class="page-content active">
-            <div class="fleet-grid" id="fleet-cards-container">
-                </div>
+            <div class="fleet-grid" id="fleet-cards-container"></div>
         </div>
 
         <div id="page-intel" class="page-content">
@@ -306,8 +303,7 @@
             
             <div class="card">
                 <div class="card-title">👤 Attribution des Numéros & Châssis</div>
-                <div class="form-row" id="setup-chassis-inputs-zone">
-                    </div>
+                <div class="form-row" id="setup-chassis-inputs-zone"></div>
             </div>
         </div>
 
@@ -380,24 +376,19 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // =======================================================================
-        // 🔒 CONFIGURATION DE VOTRE NOUVELLE BASE DE DONNÉES (BAC À SABLE SÉCURISÉ)
-        // =======================================================================
         const firebaseConfig = {
-            databaseURL: "https://dashfuncup-4-race-default-rtdb.europe-west1.firebasedatabase.app/" // Remplacer par l'URL de votre nouvelle base !
+            databaseURL: "https://dashfuncup-4-race-default-rtdb.europe-west1.firebasedatabase.app/"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- BASE DE DONNÉES CIRCUITS ---
         window.circuitsDatabase = {
             "SPA": { name: "SPA (25h)", maxFuel: 42, refSecSec: 185, refSecPluie: 205, conso: [1.77, 1.77, 1.77, 1.77] },
             "Castellet": { name: "Castellet (8h)", maxFuel: 42, refSecSec: 152, refSecPluie: 169, conso: [1.38, 1.38, 1.38, 1.38] },
             "Dijon": { name: "Dijon-Prenois", maxFuel: 40, refSecSec: 100, refSecPluie: 111, conso: [0.88, 0.88, 0.88, 0.88] }
         };
 
-        // --- ÉTAT LOCAL DE L'APPLICATION ---
         window.currentCarCount = 4;
         window.activeCarIdInDrawer = null;
         window.lastCalculatedFlashConso = null;
@@ -425,20 +416,18 @@
             };
         }
 
-        // =======================================================================
-        // INITIALISATION UNIQUE ET DYNAMIQUE DE L'INTERFACE (ZÉRO RÉPÉTITION)
-        // =======================================================================
         function initInterfaceGraphes() {
             const containerCards = document.getElementById("fleet-cards-container");
             const containerSetupInputs = document.getElementById("setup-chassis-inputs-zone");
             
+            if (!containerCards || !containerSetupInputs) return;
+
             let cardsHtml = "";
             let setupInputsHtml = "";
 
             for(let i=1; i<=6; i++) {
                 let id = "v" + i;
                 
-                // Génération des cartes de la flotte
                 cardsHtml += `
                     <div id="card-${id}" class="car-card">
                         <div class="car-header">
@@ -469,7 +458,6 @@
                     </div>
                 `;
 
-                // Génération des inputs dans l'onglet Setup
                 setupInputsHtml += `
                     <div class="form-group" id="block-setup-${id}">
                         <label class="lbl-${id}">Châssis #${window.carIdMapping[id]}</label>
@@ -481,24 +469,18 @@
             containerSetupInputs.innerHTML = setupInputsHtml;
 
             window.changerNombreVoitures(4);
+            updateVisualsFromState();
         }
 
-        // =======================================================================
-        // GESTION DU FLUX DE NAVIGATION ET DU CHANGEMENT DE PAGES
-        // =======================================================================
         window.switchPage = function(targetPageId, activeBtnId) {
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             
-            document.getElementById(targetPageId).classList.add('active');
-            if(activeBtnId) document.getElementById(activeBtnId).classList.add('active');
-            
-            // Masquer ou afficher des éléments selon la page
-            const header = document.getElementById("app-header");
-            if(targetPageId === 'page-box-monitor') {
-                if(header) header.style.display = "none";
-            } else {
-                if(header) header.style.display = "flex";
+            const target = document.getElementById(targetPageId);
+            if(target) target.classList.add('active');
+            if(activeBtnId) {
+                const btn = document.getElementById(activeBtnId);
+                if(btn) btn.classList.add('active');
             }
         };
 
@@ -507,9 +489,10 @@
             window.currentCarCount = nb;
             for(let i=1; i<=6; i++) {
                 const id = "v" + i;
-                const visible = (i <= nb);
-                document.getElementById(`card-${id}`).style.display = visible ? "flex" : "none";
-                document.getElementById(`block-setup-${id}`).style.display = visible ? "flex" : "none";
+                const card = document.getElementById(`card-${id}`);
+                const block = document.getElementById(`block-setup-${id}`);
+                if(card) card.style.display = (i <= nb) ? "flex" : "none";
+                if(block) block.style.display = (i <= nb) ? "flex" : "none";
             }
             window.dbPushFullRaceState();
         };
@@ -523,19 +506,16 @@
             window.dbPushFullRaceState();
         };
 
-        // =======================================================================
-        // FONCTIONS SYNCHRO FIREBASE (MURET -> CLOUD)
-        // =======================================================================
         window.dbToggleTrackState = function() {
             window.isFCY = !window.isFCY;
             update(ref(db, 'race_state'), { isFCY: window.isFCY });
-            window.dbLogLiveEventCloud("SYSTEM", window.isFCY ? "🟨 FCY ACTIF - STRATÉGIE COEFF ÉCO ENCLENCHÉE" : "🟢 RETOUR PISTE VERTE", "--", "TRACK");
+            window.dbLogLiveEventCloud("SYSTEM", window.isFCY ? "🟨 FCY ACTIF" : "🟢 RETOUR PISTE VERTE", "--", "TRACK");
         };
 
         window.dbToggleRedFlag = function() {
             window.isRedFlag = !window.isRedFlag;
             update(ref(db, 'race_state'), { isRedFlag: window.isRedFlag });
-            window.dbLogLiveEventCloud("SYSTEM", window.isRedFlag ? "🔴 DRAPEAU ROUGE INTERRUPT" : "🟢 REPRISE SOUS REGIME DE COURSE", "--", "TRACK");
+            window.dbLogLiveEventCloud("SYSTEM", window.isRedFlag ? "🔴 DRAPEAU ROUGE INTERRUPT" : "🟢 REPRISE", "--", "TRACK");
         };
 
         window.dbChangeWeatherState = function(val) {
@@ -543,197 +523,177 @@
         };
 
         window.dbPushFullRaceState = function() {
-            const payload = {
-                weatherMode: window.weatherMode,
-                isFCY: window.isFCY,
-                isRedFlag: window.isRedFlag,
-                enemyDatabase: window.enemyDatabase,
-                cars: {}
-            };
-            for(let i=1; i<=window.currentCarCount; i++) {
-                let id = "v" + i;
-                payload.cars[id] = {
-                    fuel: window.fleetState[id].fuel,
-                    currentLap: window.fleetState[id].currentLap,
-                    isInsidePit: window.fleetState[id].isInsidePit,
-                    pitSeconds: window.fleetState[id].pitSeconds,
-                    rotation: window.fleetState[id].rotation,
-                    conso: window.fleetState[id].conso,
-                    carNumInput: window.carIdMapping[id]
+            try {
+                const payload = {
+                    weatherMode: window.weatherMode || "sec",
+                    isFCY: window.isFCY || false,
+                    isRedFlag: window.isRedFlag || false,
+                    enemyDatabase: window.enemyDatabase || [],
+                    cars: {}
                 };
-            }
-            set(ref(db, 'race_state'), payload);
+                for(let i=1; i<=window.currentCarCount; i++) {
+                    let id = "v" + i;
+                    payload.cars[id] = {
+                        fuel: window.fleetState[id].fuel,
+                        currentLap: window.fleetState[id].currentLap,
+                        isInsidePit: window.fleetState[id].isInsidePit,
+                        pitSeconds: window.fleetState[id].pitSeconds,
+                        rotation: window.fleetState[id].rotation,
+                        conso: window.fleetState[id].conso,
+                        carNumInput: window.carIdMapping[id]
+                    };
+                }
+                set(ref(db, 'race_state'), payload);
+            } catch(e) { console.error("Erreur push", e); }
         };
 
         window.dbLogLiveEventCloud = function(carNum, action, fuel, trackLabel) {
             const now = new Date();
-            const timeStr = now.toLocaleTimeString('fr-FR');
             set(ref(db, `logs/${now.getTime()}`), {
-                time: timeStr, carNum: carNum, action: action, fuel: fuel, status: trackLabel
+                time: now.toLocaleTimeString('fr-FR'), carNum: carNum, action: action, fuel: fuel, status: trackLabel
             });
         };
 
         window.dbResetEntireRace = function() {
-            if(confirm("🚨 RESET TOTAL : Êtes-vous sûr de vouloir effacer la course actuelle dans cette nouvelle base de données ?")) {
+            if(confirm("🚨 RESET TOTAL : Effacer la course ?")) {
                 remove(ref(db, 'logs'));
-                remove(ref(db, 'race_state')).then(() => {
-                    location.reload();
-                });
+                remove(ref(db, 'race_state')).then(() => { location.reload(); });
             }
         };
 
-        // =======================================================================
-        // LOGIQUE MANUELLE DE COURSE (LIGNE / STAND / SORTIE)
-        // =======================================================================
         window.triggerCarLap = function(id) {
             const car = window.fleetState[id];
             if(car.isInsidePit) return;
-
             car.currentLap++;
             const pilotIdx = car.rotation[0];
-            
-            let coeffMeteo = 1.0;
-            if (window.weatherMode === "pluie_moderee") coeffMeteo = 0.75;
-            else if (window.weatherMode === "forte_pluie") coeffMeteo = 0.40;
-
-            let c = (car.conso[pilotIdx]?.sec || 1.77) * coeffMeteo;
+            let coeff = window.weatherMode === "pluie_moderee" ? 0.75 : (window.weatherMode === "forte_pluie" ? 0.40 : 1.0);
+            let c = (car.conso[pilotIdx]?.sec || 1.77) * coeff;
             if (window.isFCY) c = (car.conso[pilotIdx]?.sec || 1.77) * 0.50;
-            if (window.isRedFlag) c = 0;
-
             car.fuel = Math.max(0, car.fuel - c);
-            
-            window.dbLogLiveEventCloud(window.carIdMapping[id], `Tour #${car.currentLap} validé (Pilote ${window.pilotsDatabase[id][pilotIdx]})`, `${car.fuel.toFixed(1)} L`, "MANUEL");
+            window.dbLogLiveEventCloud(window.carIdMapping[id], `Tour #${car.currentLap}`, `${car.fuel.toFixed(1)} L`, "MANUEL");
             window.dbPushFullRaceState();
         };
 
         window.enterCarPit = function(id) {
-            const car = window.fleetState[id];
-            car.isInsidePit = true;
-            car.pitSeconds = 0;
-            window.dbLogLiveEventCloud(window.carIdMapping[id], "📥 ENTRÉE BOX STANDS", `${car.fuel.toFixed(1)} L`, "STAND");
+            window.fleetState[id].isInsidePit = true;
+            window.fleetState[id].pitSeconds = 0;
+            window.dbLogLiveEventCloud(window.carIdMapping[id], "📥 ENTRÉE STANDS", `${window.fleetState[id].fuel.toFixed(1)} L`, "STAND");
             window.dbPushFullRaceState();
         };
 
         window.exitCarPit = function(id) {
             const car = window.fleetState[id];
             car.isInsidePit = false;
-            clearInterval(car.interval);
-
-            const maxFuel = parseFloat(document.getElementById("setup-maxFuel").value) || 42;
-            car.fuel = maxFuel; // Force le plein complet pour cette V2 simplifiée
-
-            // Shift de pilote
+            car.fuel = parseFloat(document.getElementById("setup-maxFuel")?.value) || 42;
             let old = car.rotation.shift();
             car.rotation.push(old);
-
-            window.dbLogLiveEventCloud(window.carIdMapping[id], `🏎️ RELANCE STAND (Nouveau pilote: ${window.pilotsDatabase[id][car.rotation[0]]})`, `${car.fuel.toFixed(1)} L`, "PISTE");
+            window.dbLogLiveEventCloud(window.carIdMapping[id], "🏎️ SORTIE STANDS", `${car.fuel.toFixed(1)} L`, "PISTE");
             window.dbPushFullRaceState();
         };
 
-        // =======================================================================
-        // 📢 ÉCOUTE LIVE ET CALCULS DE STRATÉGIE ASYNCHRONES
-        // =======================================================================
-        onValue(ref(db, 'race_state'), (snapshot) => {
-            const data = snapshot.val();
-            if(!data) return;
+        function updateVisualsFromState() {
+            const maxFuel = parseFloat(document.getElementById("setup-maxFuel")?.value) || 42;
+            const alertLimit = parseInt(document.getElementById("setup-alertLimit")?.value) || 3;
 
-            window.isFCY = data.isFCY || false;
-            window.isRedFlag = data.isRedFlag || false;
-            window.weatherMode = data.weatherMode || "sec";
-            window.enemyDatabase = data.enemyDatabase || [];
-
-            // Update UI Globale Direction de Course
             const trackBtn = document.getElementById("trackState");
-            trackBtn.innerText = window.isFCY ? "🟨 FCY EN COURS" : "🟢 Piste Dégagée";
-            trackBtn.className = window.isFCY ? "ctrl-btn btn-track fcy" : "ctrl-btn btn-track";
-
+            if(trackBtn) {
+                trackBtn.innerText = window.isFCY ? "🟨 FCY EN COURS" : "🟢 Piste Dégagée";
+                trackBtn.className = window.isFCY ? "ctrl-btn btn-track fcy" : "ctrl-btn btn-track";
+            }
             const redBtn = document.getElementById("redFlagState");
-            if(window.isRedFlag) redBtn.classList.add("active");
-            else redBtn.classList.remove("active");
+            if(redBtn) {
+                if(window.isRedFlag) redBtn.classList.add("active");
+                else redBtn.classList.remove("active");
+            }
+            const wSelect = document.getElementById("weatherStateSelect");
+            if(wSelect) wSelect.value = window.weatherMode;
 
-            document.getElementById("weatherStateSelect").value = window.weatherMode;
-
-            // Boucle de mise à jour des widgets voitures
-            const maxFuel = parseFloat(document.getElementById("setup-maxFuel").value) || 42;
-            const alertLimit = parseInt(document.getElementById("setup-alertLimit").value) || 3;
-
-            for(let i=1; i<=window.currentCarCount; i++) {
+            for(let i=1; i<=6; i++) {
                 let id = "v" + i;
-                if(!data.cars || !data.cars[id]) continue;
-
-                const cloudCar = data.cars[id];
                 const localCar = window.fleetState[id];
-
-                localCar.fuel = parseFloat(cloudCar.fuel) || 42.0;
-                localCar.currentLap = parseInt(cloudCar.currentLap) || 0;
-                localCar.isInsidePit = cloudCar.isInsidePit || false;
-                localCar.rotation = cloudCar.rotation || ["1", "2", "3", "4"];
-                localCar.conso = cloudCar.conso || localCar.conso;
+                if(!localCar) continue;
 
                 const pilotIdx = localCar.rotation[0];
-                document.getElementById(`fleet-pilot-${id}`).innerText = window.pilotsDatabase[id][pilotIdx];
-                document.getElementById(`fuel-val-${id}`).innerText = localCar.fuel.toFixed(1) + " L";
+                const elPilot = document.getElementById(`fleet-pilot-${id}`);
+                const elFuel = document.getElementById(`fuel-val-${id}`);
+                
+                if(elPilot) elPilot.innerText = window.pilotsDatabase[id][pilotIdx] || "-";
+                if(elFuel) elFuel.innerText = localCar.fuel.toFixed(1) + " L";
 
-                // Calculs de consommation appliqués selon météo
-                let coeff = 1.0;
-                if (window.weatherMode === "pluie_moderee") coeff = 0.75;
-                else if (window.weatherMode === "forte_pluie") coeff = 0.40;
-
+                let coeff = window.weatherMode === "pluie_moderee" ? 0.75 : (window.weatherMode === "forte_pluie" ? 0.40 : 1.0);
                 let currentConso = (localCar.conso[pilotIdx]?.sec || 1.77) * coeff;
                 if(window.isFCY) currentConso = (localCar.conso[pilotIdx]?.sec || 1.77) * 0.50;
 
                 const lapsLeft = currentConso > 0 ? Math.floor(localCar.fuel / currentConso) : 0;
-                document.getElementById(`laps-${id}`).innerText = lapsLeft;
-                document.getElementById(`predict-box-${id}`).innerText = `🎯 Arrêt idéal : Tour ${localCar.currentLap + lapsLeft}`;
+                const elLaps = document.getElementById(`laps-${id}`);
+                const elPredict = document.getElementById(`predict-box-${id}`);
+                if(elLaps) elLaps.innerText = lapsLeft;
+                if(elPredict) elPredict.innerText = `🎯 Arrêt idéal : Tour ${localCar.currentLap + lapsLeft}`;
 
-                // Graphique de jauge de carburant
-                const pct = (localCar.fuel / maxFuel) * 100;
                 const bar = document.getElementById(`bar-${id}`);
-                bar.style.width = pct + "%";
+                if(bar) bar.style.width = ((localCar.fuel / maxFuel) * 100) + "%";
 
-                // Gestion des styles d'alertes visuels
                 const card = document.getElementById(`card-${id}`);
                 const badge = document.getElementById(`badge-${id}`);
-
-                card.className = "car-card";
-                if(window.isRedFlag) {
-                    card.classList.add("state-red-flag");
-                    badge.className = "status-badge badge-alert";
-                    badge.innerText = "COURSE ARRETÉE";
-                } else if(localCar.isInsidePit) {
-                    card.classList.add("state-pit");
-                    badge.className = "status-badge badge-stand";
-                    badge.innerText = "Au Stand";
-                    
-                    // Gestion du timer visuel Stand unique de cette V2
-                    document.getElementById(`btn-lap-${id}`).style.display = "none";
-                    document.getElementById(`btn-pit-${id}`).style.display = "none";
-                    document.getElementById(`btn-exit-${id}`).style.display = "block";
-                    document.getElementById(`pit-timer-${id}`).style.display = "block";
-                } else {
-                    document.getElementById(`btn-lap-${id}`).style.display = "block";
-                    document.getElementById(`btn-pit-${id}`).style.display = "block";
-                    document.getElementById(`btn-exit-${id}`).style.display = "none";
-                    document.getElementById(`pit-timer-${id}`).style.display = "none";
-
-                    if(lapsLeft <= alertLimit) {
-                        card.classList.add("state-alert");
+                if(card && badge) {
+                    card.className = "car-card";
+                    if(window.isRedFlag) {
+                        card.classList.add("state-red-flag");
                         badge.className = "status-badge badge-alert";
-                        badge.innerText = "🚨 BOX CE TOUR";
-                    } else if(window.isFCY) {
-                        card.classList.add("state-fcy");
-                        badge.className = "status-badge badge-fcy";
-                        badge.innerText = "FCY SLOW";
+                        badge.innerText = "COURSE ARRETÉE";
+                    } else if(localCar.isInsidePit) {
+                        card.classList.add("state-pit");
+                        badge.className = "status-badge badge-stand";
+                        badge.innerText = "Au Stand";
+                        if(document.getElementById(`btn-lap-${id}`)) document.getElementById(`btn-lap-${id}`).style.display = "none";
+                        if(document.getElementById(`btn-pit-${id}`)) document.getElementById(`btn-pit-${id}`).style.display = "none";
+                        if(document.getElementById(`btn-exit-${id}`)) document.getElementById(`btn-exit-${id}`).style.display = "block";
                     } else {
-                        badge.className = "status-badge badge-piste";
-                        badge.innerText = "En Piste";
+                        if(document.getElementById(`btn-lap-${id}`)) document.getElementById(`btn-lap-${id}`).style.display = "block";
+                        if(document.getElementById(`btn-pit-${id}`)) document.getElementById(`btn-pit-${id}`).style.display = "block";
+                        if(document.getElementById(`btn-exit-${id}`)) document.getElementById(`btn-exit-${id}`).style.display = "none";
+
+                        if(lapsLeft <= alertLimit) {
+                            card.classList.add("state-alert");
+                            badge.className = "status-badge badge-alert";
+                            badge.innerText = "🚨 BOX CE TOUR";
+                        } else if(window.isFCY) {
+                            card.classList.add("state-fcy");
+                            badge.className = "status-badge badge-fcy";
+                            badge.innerText = "FCY SLOW";
+                        } else {
+                            badge.className = "status-badge badge-piste";
+                            badge.innerText = "En Piste";
+                        }
                     }
                 }
             }
-            rebuildIntelTableLocal();
+            if(typeof window.rebuildIntelTableLocal === "function") window.rebuildIntelTableLocal();
+        }
+
+        onValue(ref(db, 'race_state'), (snapshot) => {
+            const data = snapshot.val();
+            if(data) {
+                window.isFCY = data.isFCY || false;
+                window.isRedFlag = data.isRedFlag || false;
+                window.weatherMode = data.weatherMode || "sec";
+                window.enemyDatabase = data.enemyDatabase || [];
+
+                for(let i=1; i<=6; i++) {
+                    let id = "v" + i;
+                    if(data.cars && data.cars[id]) {
+                        const cloudCar = data.cars[id];
+                        window.fleetState[id].fuel = parseFloat(cloudCar.fuel) || 42.0;
+                        window.fleetState[id].currentLap = parseInt(cloudCar.currentLap) || 0;
+                        window.fleetState[id].isInsidePit = cloudCar.isInsidePit || false;
+                        window.fleetState[id].rotation = cloudCar.rotation || ["1", "2", "3", "4"];
+                        window.fleetState[id].conso = cloudCar.conso || window.fleetState[id].conso;
+                    }
+                }
+            }
+            updateVisualsFromState();
         });
 
-        // Lecture limitée des logs (Évite la saturation mémoire V1)
         onValue(ref(db, 'logs'), (snapshot) => {
             const logs = snapshot.val();
             const tbody = document.getElementById('fleetLogBody');
@@ -749,26 +709,22 @@
     </script>
 
     <script>
-        // --- UX PANNEAU COULISSANT (DRAWER) ---
         function openDrawer(id) {
             window.activeCarIdInDrawer = id;
             const car = window.fleetState[id];
             
             document.getElementById("drawer-car-title").innerText = `Stratégie Voiture #${window.carIdMapping[id]}`;
             
-            // Injection des consos actuelles
             document.getElementById("drawer-c-p1").value = car.conso[1]?.sec || 1.77;
             document.getElementById("drawer-c-p2").value = car.conso[2]?.sec || 1.77;
             document.getElementById("drawer-c-p3").value = car.conso[3]?.sec || 1.77;
             document.getElementById("drawer-c-p4").value = car.conso[4]?.sec || 1.77;
 
-            // Labellisation des prénoms des pilotes dans le formulaire
             document.getElementById("lbl-p1").innerText = window.pilotsDatabase[id][1];
             document.getElementById("lbl-p2").innerText = window.pilotsDatabase[id][2];
             document.getElementById("lbl-p3").innerText = window.pilotsDatabase[id][3];
             document.getElementById("lbl-p4").innerText = window.pilotsDatabase[id][4];
 
-            // Remplissage du select Flash Conso
             const flashSelect = document.getElementById("drawer-flash-pilot");
             flashSelect.innerHTML = `
                 <option value="1">${window.pilotsDatabase[id][1]}</option>
@@ -777,7 +733,6 @@
                 <option value="4">${window.pilotsDatabase[id][4]}</option>
             `;
 
-            // Remplissage des sélections de rotation
             for(let r=1; r<=4; r++) {
                 const selectRot = document.getElementById(`rot-r${r}`);
                 selectRot.innerHTML = `
@@ -821,7 +776,6 @@
             window.dbPushFullRaceState();
         }
 
-        // --- DEBRIEF FLASH CONSO MATHS ---
         function calculateFlashConso() {
             const fuel = parseFloat(document.getElementById("drawer-flash-fuel").value) || 0;
             const tSec = parseInt(document.getElementById("flash-t-sec").value) || 0;
@@ -834,7 +788,6 @@
                 alert("Données incomplètes."); return;
             }
 
-            // Loi mathématique linéaire stricte inversée
             const toursEquivSec = (tSec * 1.0) + (tPluie * 0.75) + (tFcy * 0.50) + (tDeluge * 0.40);
             window.lastCalculatedFlashConso = fuel / toursEquivSec;
 
@@ -853,13 +806,11 @@
             window.dbPushFullRaceState();
             alert("Injection réussie dans la fiche étalon !");
             
-            // Clean
             document.getElementById("drawer-flash-fuel").value = "";
             document.getElementById("btn-apply-flash").disabled = true;
             document.getElementById("drawer-flash-result").innerText = "--.- L/tr étalonné";
         }
 
-        // --- ENEMY INTEL ANALYSE COMPARATIVE LOCAL ---
         function calculateEnemyIntel() {
             const num = document.getElementById("intelCarNum").value;
             const laps = parseInt(document.getElementById("intelCarLaps").value) || 1;
@@ -882,7 +833,6 @@
 
             let sumConso = 0; let count = 0;
 
-            // Rendu de nos voitures actives
             for(let i=1; i<=window.currentCarCount; i++) {
                 let id = "v" + i;
                 const pilotIdx = window.fleetState[id].rotation[0];
@@ -901,7 +851,6 @@
                 `;
             }
 
-            // Rendu des adversaires espionnés
             window.enemyDatabase.forEach(enemy => {
                 sumConso += enemy.conso; count++;
                 tbody.innerHTML += `
@@ -918,20 +867,18 @@
             if(count > 0) document.getElementById("globalMeanValue").innerText = (sumConso / count).toFixed(2) + " L";
         }
 
-        // --- DESIGN ET INTERRUPTEUR LECTURE SEULE (BOX TV) ---
         window.checkAccess = function() {
             const code = document.getElementById("access-code").value.trim();
             const sas = document.getElementById("login-popup");
             const sidebar = document.getElementById("app-sidebar");
-            const header = document.getElementById("app-header");
 
             if(code === "ADMIN123") {
                 sas.style.display = "none";
-                setReadOnlyMode(false); // Mode muret complet avec boutons
+                setReadOnlyMode(false);
             } else if(code === "BOX456") {
                 sas.style.display = "none";
-                sidebar.style.display = "none"; // On masque le menu
-                setReadOnlyMode(true);  // Mode TV passive pour les pilotes
+                sidebar.style.display = "none";
+                setReadOnlyMode(true);
             } else {
                 alert("Code invalide");
             }
@@ -948,7 +895,7 @@
         }
 
         function lockMuretManual() {
-            location.reload(); // Renvoie au SAS d'accès sécurisé immédiatement
+            location.reload();
         }
     </script>
 </body>
