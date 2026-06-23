@@ -45,6 +45,23 @@
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
+        /* BOUTON METTRE EN CACHETTE LA SIDEBAR */
+        .toggle-sidebar-btn {
+            background: none;
+            border: 1px solid var(--4race-card-border);
+            color: var(--4race-text-muted);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 15px;
+            transition: all 0.2s;
+        }
+        .toggle-sidebar-btn:hover {
+            color: #fff;
+            border-color: var(--4race-text-muted);
+        }
+        
         /* Quand on cache la sidebar */
         aside.collapsed {
             margin-left: -260px;
@@ -218,6 +235,9 @@
     <div class="main-container">
         <header id="app-header">
             <div class="race-control-center">
+                <!-- NOUVEAU : Bouton pour masquer/afficher la sidebar -->
+                <button class="toggle-sidebar-btn" onclick="window.toggleSidebar()">☰</button>
+                
                 <div id="trackState" class="ctrl-btn btn-track" onclick="dbToggleTrackState()">🟢 Piste Dégagée</div>
                 <button id="redFlagState" class="ctrl-btn btn-redflag" onclick="dbToggleRedFlag()">🔴 DRAPEAU ROUGE</button>
                 <select id="weatherStateSelect" class="weather-select" onchange="dbChangeWeatherState(this.value)">
@@ -903,6 +923,14 @@
         function lockMuretManual() {
             location.reload();
         }
+        
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById("app-sidebar");
+            if (sidebar) {
+                sidebar.classList.toggle("collapsed");
+            }
+        };
+        
     </script>
 </body>
 </html>
