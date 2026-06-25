@@ -944,12 +944,76 @@
         };
         function closeRacePopup() { document.getElementById("raceAlertPopup").style.display = "none"; }
 
-        window.checkAccess = function() {
-            const code = document.getElementById("access-code").value.trim();
-            if(code === "ADMIN123") { document.getElementById("login-popup").style.display = "none"; setReadOnlyMode(false); }
-            else if(code === "BOX456") { document.getElementById("login-popup").style.display = "none"; document.getElementById("app-sidebar").style.display = "none"; switchPage('page-box-monitor', ''); setReadOnlyMode(true); }
-            else { alert("Code incorrect !"); }
-        };
+        // --- CODES D'ACCÈS UNIQUES PAR VOITURE ---
+// Permet d'associer un code (ex: BOX531) à un index de voiture (ex: v1)
+window.boxAccessCodes = {
+    "BOX531": "v1", // Voiture #531
+    "BOX183": "v2", // Voiture #183
+    "BOX156": "v3", // Voiture #156
+    "BOX40":  "v4", // Voiture #40
+    "BOX77":  "v5", // Voiture #77
+    "BOX88":  "v6"  // Voiture #88
+};
+
+window.checkAccess = function() {
+    const code = document.getElementById("access-code").value.trim().toUpperCase(); // Forcer en majuscules
+    
+    if (code === "ADMIN123") { 
+        document.getElementById("login-popup").style.display = "none"; 
+        setReadOnlyMode(false); 
+    } 
+    else if (window.boxAccessCodes[code]) { 
+        const targetCarId = window.boxAccessCodes[code]; // Récupère 'v1', 'v2', etc.
+        
+        document.getElementById("login-popup").style.display = "none"; 
+        document.getElementById("app-sidebar").style.display = "none"; 
+        
+        // Active la page Moniteur Box
+        switchPage('page-box-monitor', ''); 
+        setReadOnlyMode(true); 
+        
+        // Active le filtrage pour ne voir que cette voiture
+        filtrerBoxPourUneVoiture(targetCarId);
+    } 
+    else { 
+        alert("Code incorrect ! Utilisez ADMIN123 ou BOX + N° de voiture (ex: BOX531)"); 
+    }
+};
+
+function setReadOnlyMode(st) {
+    // Cache ou montre les boutons d'action sur la grille principale
+    document.querySelectorAll('.action-zone, .reset-btn').forEach(el => { 
+        el.style.display = st ? "none" : "flex"; 
+    });
+    if (st) { 
+        document.getElementById("app-header").style.display = "none"; 
+    }
+}
+
+// --- FONCTION DE FILTRAGE DYNAMIQUE ---
+function filtrerBoxPourUneVoiture(carId) {
+    // On force la grille du Moniteur Box à n'afficher qu'une seule colonne centrée
+    const boxGrid = document.getElementById("box-monitor-grid");
+    if (boxGrid) {
+        boxGrid.style.gridTemplateColumns = "1fr";
+        boxGrid.style.maxWidth = "450px";
+        boxGrid.style.margin = "0 auto";
+    }
+
+    // On crée un style CSS dynamique pour masquer toutes les cartes du moniteur
+    // SAUF celle qui correspond à l'index de la voiture connectée
+    const style = document.createElement('style');
+    
+    // Détermine l'index numérique (ex: v1 -> 1, v2 -> 2)
+    const carIndex = carId.replace('v', '');
+    
+    // Règle CSS : on cache tous les enfants de la grille, sauf le X-ième (nth-child)
+    style.innerHTML = `
+        #box-monitor-grid > div { display: none !important; }
+        #box-monitor-grid > div:nth-child(${carIndex}) { display: flex !important; }
+    `;
+    document.head.appendChild(style);
+}
         function setReadOnlyMode(st) {
             document.querySelectorAll('.action-zone, .reset-btn').forEach(el => { el.style.display = st ? "none" : "flex"; });
             if(st) { document.getElementById("app-header").style.display = "none"; }
