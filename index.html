@@ -976,7 +976,7 @@ window.checkAccess = function() {
         filtrerBoxPourUneVoiture(targetCarId);
     } 
     else { 
-        alert("Code incorrect ! Utilisez ADMIN123 ou BOX + N° de voiture (ex: BOX531)"); 
+        alert("Code incorrect !"); 
     }
 };
 
@@ -1014,11 +1014,7 @@ function filtrerBoxPourUneVoiture(carId) {
     `;
     document.head.appendChild(style);
 }
-        function setReadOnlyMode(st) {
-            document.querySelectorAll('.action-zone, .reset-btn').forEach(el => { el.style.display = st ? "none" : "flex"; });
-            if(st) { document.getElementById("app-header").style.display = "none"; }
-        }
-        function lockMuretManual() { location.reload(); }
+    
         window.formatPitTime = function(s) { return `${Math.floor(s/60).toString().padStart(2,'0')}:${Math.floor(s%60).toString().padStart(2,'0')}.${Math.floor((s%1)*10)}`; };
     </script>
 </body>
