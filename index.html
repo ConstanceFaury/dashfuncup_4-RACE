@@ -445,12 +445,15 @@
             v6: { 1: "PiloteE", 2: "PiloteF", 3: "PiloteG", 4: "PiloteH" }
         };
 
-     window.fleetState["v"+i] = {
-        fuel: 42.0, currentLap: 0, isInsidePit: false, pitSeconds: 0, interval: null,
-        pitStartTime: null, // 👈 RAJOUTER CETTE LIGNE
-        rotation: ["1", "2", "3", "4"], hasAlerted: false, lastLapTimestamp: null, bestLapMs: null, bestLap: "--:--.---", history: [],
-        conso: { 1: {sec:1.77}, 2: {sec:1.77}, 3: {sec:1.77}, 4: {sec:1.77} }
-    };
+ window.fleetState = {};
+        for(let i=1; i<=6; i++) {
+            window.fleetState["v"+i] = {
+                fuel: 42.0, currentLap: 0, isInsidePit: false, pitSeconds: 0, interval: null,
+                pitStartTime: null, // 💡 AJOUTÉ ICI : évite les erreurs "undefined"
+                rotation: ["1", "2", "3", "4"], hasAlerted: false, lastLapTimestamp: null, bestLapMs: null, bestLap: "--:--.---", history: [],
+                conso: { 1: {sec:1.77}, 2: {sec:1.77}, 3: {sec:1.77}, 4: {sec:1.77} }
+            };
+        }
 
         // INITIALISATION HTML UNIQUE SANS RÉPÉTITION
         function buildHTMLElementsStructure() {
@@ -755,9 +758,7 @@
             if(window.activeCarIdInDrawer) window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
         }
 
-        // ECOUTE PERMANENTE CLOUD FIREBASE
-       // ECOUTE PERMANENTE CLOUD FIREBASE
-        onValue(ref(db, 'race_state'), (snapshot) => {
+       onValue(ref(db, 'race_state'), (snapshot) => {
             const data = snapshot.val(); if(!data) return;
             window.isFCY = data.isFCY || false; window.isRedFlag = data.isRedFlag || false; window.weatherMode = data.weatherMode || "sec"; window.enemyDatabase = data.enemyDatabase || [];
             
@@ -784,12 +785,12 @@
                 if(posWidget) posWidget.innerText = localCar.position;
 
                 // --- INTEGRATION DU TIMEOUT CLOUD DU PIT ---
-                localCar.pitStartTime = cloudCar.pitStartTime || null; // Capture du moment exact de l'arrêt
+                localCar.pitStartTime = cloudCar.pitStartTime || null; 
 
                 if (cloudCar.isInsidePit) { 
                     localCar.isInsidePit = true; 
                     localCar.pitSeconds = cloudCar.pitSeconds || 0; 
-                    window.startLocalPitTimer(id); // Déclenche/maintient le chrono synchro
+                    window.startLocalPitTimer(id); 
                 } else { 
                     clearInterval(localCar.interval); 
                     localCar.isInsidePit = false; 
