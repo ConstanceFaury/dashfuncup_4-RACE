@@ -582,7 +582,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
             // 1. On récupère la conso par défaut du circuit (ex: 1.38 pour le Castellet)
             const consoCircuit = (circuit.conso && circuit.conso[0]) ? circuit.conso[0].sec : 1.77;
             
-            // 2. On applique la consommation PARTOUT dans l'écurie locale
+            // 2. On applique la consommation PARTOUT dans l'état local complet
             for(let i=1; i<=6; i++) {
                 let id = "v" + i; 
                 const car = window.fleetState[id];
@@ -590,19 +590,18 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 car.fuel = circuit.maxFuel;
                 for(let p=1; p<=4; p++) {
                     if(!car.conso[p]) car.conso[p] = {};
-                    car.conso[p].sec = consoCircuit;
+                    car.conso[p].sec = consoCircuit; // Écrit dans l'objet lu par le Drawer
                 }
             }
             
-            // 3. CORRECTIF MAJEUR : On pousse d'abord de manière synchrone les nouvelles consos sur Firebase
-            // Pour éviter que le flux de lecture Firebase 'onValue' ne nous renvoie les anciennes valeurs (1.77)
+            // 3. On pousse la structure exacte attendue par Firebase
             try {
                 const payload = { 
                     weatherMode: window.weatherMode, 
                     isFCY: window.isFCY, 
                     isRedFlag: window.isRedFlag, 
                     enemyDatabase: window.enemyDatabase,
-                    track_ref_sec: circuit.refSecSec, // Ajouté pour correspondre à la structure de ta DB
+                    track_ref_sec: circuit.refSecSec,
                     track_ref_pluie: circuit.refSecPluie,
                     cars: {} 
                 };
@@ -611,10 +610,12 @@ window.dbAppliquerCircuit = function(circuitKey) {
                     let id = "v" + i; 
                     const car = window.fleetState[id];
                     const cInputs = {}; const cFcyInputs = {};
+                    
                     for(let p=1; p<=4; p++) {
-                        cInputs[String(p)] = consoCircuit; // On force la nouvelle conso ici !
+                        cInputs[String(p)] = consoCircuit;
                         cFcyInputs[String(p)] = consoCircuit * 0.5;
                     }
+                    
                     payload.cars[id] = {
                         fuel: car.fuel, 
                         currentLap: car.currentLap, 
@@ -623,7 +624,13 @@ window.dbAppliquerCircuit = function(circuitKey) {
                         pitStartTime: car.pitStartTime || null,
                         hasAlerted: car.hasAlerted, 
                         rotation: car.rotation, 
-                        conso: car.conso, 
+                        // Synchronise de force l'objet conso envoyé à Firebase
+                        conso: {
+                            1: { sec: consoCircuit },
+                            2: { sec: consoCircuit },
+                            3: { sec: consoCircuit },
+                            4: { sec: consoCircuit }
+                        }, 
                         bestLap: car.bestLap, 
                         bestLapMs: car.bestLapMs || 0, 
                         history: car.history || [],
@@ -639,9 +646,9 @@ window.dbAppliquerCircuit = function(circuitKey) {
                     };
                 }
                 
-                // On met à jour Firebase d'un coup sec
+                // 4. Envoi à la base de données Firebase
                 set(ref(db, 'race_state'), payload).then(() => {
-                    // 4. Une fois que Firebase est à jour, on applique le changement visuel sur l'interface
+                    // Mises à jour graphiques immédiates après confirmation de Firebase
                     updateVisualsFromState(); 
                     
                     if (window.activeCarIdInDrawer) {
@@ -654,7 +661,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
                     }
                 });
             } catch(e) { 
-                console.error("Erreur lors de l'application du circuit:", e); 
+                console.error("Erreur d'application du circuit:", e); 
             }
 
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
