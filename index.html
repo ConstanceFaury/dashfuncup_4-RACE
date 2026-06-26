@@ -596,9 +596,18 @@ window.dbAppliquerCircuit = function(circuitKey) {
             
             update(ref(db, 'race_state'), { track_ref_sec: circuit.refSecSec, track_ref_pluie: circuit.refSecPluie });
             window.dbPushFullRaceState();
+            
+            // 🔄 CORRECTIF VISUEL : Force la mise à jour complète de l'affichage sur ton écran
+            updateVisualsFromState(); 
+            
+            // Si le Drawer d'une voiture est actuellement ouvert, on le rafraîchit aussi
+            if (window.activeCarIdInDrawer) {
+                window.openDrawer(window.activeCarIdInDrawer);
+            }
+
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
         };
-
+        
         window.dbResetEntireRace = function() {
             if(confirm("🚨 EFFACER LA COURSE DÉFINITIVEMENT ?")) {
                 remove(ref(db, 'logs'));
