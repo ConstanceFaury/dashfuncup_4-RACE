@@ -958,25 +958,34 @@ window.boxAccessCodes = {
 window.checkAccess = function() {
     const code = document.getElementById("access-code").value.trim().toUpperCase(); // Forcer en majuscules
     
+    // 1. ACCÈS ADMIN COMPLET
     if (code === "ADMIN123") { 
         document.getElementById("login-popup").style.display = "none"; 
         setReadOnlyMode(false); 
     } 
+    // 2. ACCÈS BOX GLOBAL (Toutes les voitures en lecture seule, comme avant)
+    else if (code === "BOXG") {
+        document.getElementById("login-popup").style.display = "none"; 
+        document.getElementById("app-sidebar").style.display = "none"; 
+        
+        switchPage('page-box-monitor', ''); 
+        setReadOnlyMode(true); 
+        // Pas de filtrage ici, on laisse la grille afficher toutes les voitures engagées
+    }
+    // 3. ACCÈS BOX INDIVIDUEL (Une seule voiture ciblée)
     else if (window.boxAccessCodes[code]) { 
-        const targetCarId = window.boxAccessCodes[code]; // Récupère 'v1', 'v2', etc.
+        const targetCarId = window.boxAccessCodes[code]; 
         
         document.getElementById("login-popup").style.display = "none"; 
         document.getElementById("app-sidebar").style.display = "none"; 
         
-        // Active la page Moniteur Box
         switchPage('page-box-monitor', ''); 
         setReadOnlyMode(true); 
         
-        // Active le filtrage pour ne voir que cette voiture
         filtrerBoxPourUneVoiture(targetCarId);
     } 
     else { 
-        alert("Code incorrect !"); 
+        alert("Code incorrect ! Utilisez ADMIN123, BOXG (Global) ou BOX + N° de voiture (ex: BOX531)"); 
     }
 };
 
