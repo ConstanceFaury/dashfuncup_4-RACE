@@ -487,11 +487,12 @@
                             <div id="predict-box-${id}" class="target-lap-badge" style="font-size:11px; color:#3b82f6; font-weight:bold; margin-top:8px; border: 1px dashed #3b82f6; padding: 4px; border-radius:4px;">🎯 Arrêt idéal : Tour -</div>
                             <div class="progress-container"><div id="bar-${id}" class="progress-bar"></div></div>
                         </div>
-                        <div id="opt-box-${id}" class="pit-options-box">
-                            <label><input type="radio" name="fuel-mode-${id}" id="rad-full-${id}" checked onclick="document.getElementById('input-litres-${id}').disabled = true;"> ⛽ Plein Complet</label>
-                            <label><input type="radio" name="fuel-mode-${id}" id="rad-partial-${id}" onclick="document.getElementById('input-litres-${id}').disabled = false;"> 📥 Ajouter (L) :<input type="number" id="input-litres-${id}" value="15" step="0.5" disabled style="width: 50px; background:#222; border:1px solid #444; color:#fff; text-align:center;"></label>
-                            <label><input type="checkbox" id="chk-pilot-${id}" checked> 👤 Chgt Pilote</label>
-                        </div>
+                     <div id="opt-box-${id}" class="pit-options-box">
+                        <label><input type="radio" name="fuel-mode-${id}" id="rad-full-${id}" checked onclick="document.getElementById('input-litres-${id}').disabled = true;"> ⛽ Plein Complet</label>
+                        <label><input type="radio" name="fuel-mode-${id}" id="rad-partial-${id}" onclick="document.getElementById('input-litres-${id}').disabled = false;"> 📥 Ajouter (L) :<input type="number" id="input-litres-${id}" value="15" step="0.5" disabled style="width: 50px; background:#222; border:1px solid #444; color:#fff; text-align:center;"></label>
+                        <label><input type="radio" name="fuel-mode-${id}" id="rad-none-${id}" onclick="document.getElementById('input-litres-${id}').disabled = true;"> ❌ Pas de carburant</label>
+                        <label><input type="checkbox" id="chk-pilot-${id}" checked> 👤 Chgt Pilote</label>
+                    </div>
                         <div id="pit-timer-${id}" class="pit-timer-block monospace">00:00.0</div>
                         <div class="action-zone">
                             <button id="btn-lap-${id}" class="btn-quick btn-quick-lap" onclick="window.triggerCarLap('${id}')">Passage Ligne</button>
