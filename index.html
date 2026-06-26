@@ -579,38 +579,82 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 document.getElementById("setup-maxFuel").value = circuit.maxFuel;
             }
             
-            // On récupère la conso par défaut du circuit (ex: 1.38 pour le Castellet)
+            // 1. On récupère la conso par défaut du circuit (ex: 1.38 pour le Castellet)
             const consoCircuit = (circuit.conso && circuit.conso[0]) ? circuit.conso[0].sec : 1.77;
             
+            // 2. On applique la consommation PARTOUT dans l'écurie locale
             for(let i=1; i<=6; i++) {
                 let id = "v" + i; 
                 const car = window.fleetState[id];
                 
-                // On applique la consommation du circuit sélectionné à chaque pilote dans l'état local
+                car.fuel = circuit.maxFuel;
                 for(let p=1; p<=4; p++) {
                     if(!car.conso[p]) car.conso[p] = {};
                     car.conso[p].sec = consoCircuit;
                 }
-                car.fuel = circuit.maxFuel;
             }
             
-            update(ref(db, 'race_state'), { track_ref_sec: circuit.refSecSec, track_ref_pluie: circuit.refSecPluie });
-            window.dbPushFullRaceState();
-            
-            // 🔄 CORRECTIF VISUEL : Met à jour les calculs de la flotte globale
-            updateVisualsFromState(); 
-            
-            // 🛠️ CORRECTIF DRAWER DYNAMIQUE : Si le panneau est ouvert à droite de l'écran, 
-            // on cible directement les éléments HTML de l'interface pour y écrire la bonne valeur
-            if (window.activeCarIdInDrawer) {
-                const currentOpenCar = window.fleetState[window.activeCarIdInDrawer];
-                if (document.getElementById("drawer-c-p1")) document.getElementById("drawer-c-p1").value = currentOpenCar.conso[1].sec;
-                if (document.getElementById("drawer-c-p2")) document.getElementById("drawer-c-p2").value = currentOpenCar.conso[2].sec;
-                if (document.getElementById("drawer-c-p3")) document.getElementById("drawer-c-p3").value = currentOpenCar.conso[3].sec;
-                if (document.getElementById("drawer-c-p4")) document.getElementById("drawer-c-p4").value = currentOpenCar.conso[4].sec;
+            // 3. CORRECTIF MAJEUR : On pousse d'abord de manière synchrone les nouvelles consos sur Firebase
+            // Pour éviter que le flux de lecture Firebase 'onValue' ne nous renvoie les anciennes valeurs (1.77)
+            try {
+                const payload = { 
+                    weatherMode: window.weatherMode, 
+                    isFCY: window.isFCY, 
+                    isRedFlag: window.isRedFlag, 
+                    enemyDatabase: window.enemyDatabase,
+                    track_ref_sec: circuit.refSecSec, // Ajouté pour correspondre à la structure de ta DB
+                    track_ref_pluie: circuit.refSecPluie,
+                    cars: {} 
+                };
                 
-                // On recalcule aussi le planificateur prédictif du bas du Drawer
-                window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
+                for(let i=1; i<=window.currentCarCount; i++) {
+                    let id = "v" + i; 
+                    const car = window.fleetState[id];
+                    const cInputs = {}; const cFcyInputs = {};
+                    for(let p=1; p<=4; p++) {
+                        cInputs[String(p)] = consoCircuit; // On force la nouvelle conso ici !
+                        cFcyInputs[String(p)] = consoCircuit * 0.5;
+                    }
+                    payload.cars[id] = {
+                        fuel: car.fuel, 
+                        currentLap: car.currentLap, 
+                        isInsidePit: car.isInsidePit, 
+                        pitSeconds: car.pitSeconds, 
+                        pitStartTime: car.pitStartTime || null,
+                        hasAlerted: car.hasAlerted, 
+                        rotation: car.rotation, 
+                        conso: car.conso, 
+                        bestLap: car.bestLap, 
+                        bestLapMs: car.bestLapMs || 0, 
+                        history: car.history || [],
+                        consoInputs: cInputs, 
+                        consoFcyInputs: cFcyInputs, 
+                        carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
+                        pilotsInputs: { 
+                            1: document.getElementById(`s_${id}_1`)?.value || "", 
+                            2: document.getElementById(`s_${id}_2`)?.value || "", 
+                            3: document.getElementById(`s_${id}_3`)?.value || "", 
+                            4: document.getElementById(`s_${id}_4`)?.value || "" 
+                        }
+                    };
+                }
+                
+                // On met à jour Firebase d'un coup sec
+                set(ref(db, 'race_state'), payload).then(() => {
+                    // 4. Une fois que Firebase est à jour, on applique le changement visuel sur l'interface
+                    updateVisualsFromState(); 
+                    
+                    if (window.activeCarIdInDrawer) {
+                        if (document.getElementById("drawer-c-p1")) document.getElementById("drawer-c-p1").value = consoCircuit;
+                        if (document.getElementById("drawer-c-p2")) document.getElementById("drawer-c-p2").value = consoCircuit;
+                        if (document.getElementById("drawer-c-p3")) document.getElementById("drawer-c-p3").value = consoCircuit;
+                        if (document.getElementById("drawer-c-p4")) document.getElementById("drawer-c-p4").value = consoCircuit;
+                        
+                        window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
+                    }
+                });
+            } catch(e) { 
+                console.error("Erreur lors de l'application du circuit:", e); 
             }
 
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
