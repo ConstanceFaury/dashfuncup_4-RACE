@@ -6,7 +6,7 @@
     <title>Timing Dash Pro - 4-RACE Cockpit V2 Pro</title>
     <style>
         /* =======================================================================
-           CHARTE GRAPHIQUE 4-RACE COCKPIT V2 PRO (Modern Dark & Glassmorphism)
+           CHARTE GRAPHIC 4-RACE COCKPIT V2 PRO (Modern Dark & Glassmorphism)
            ====================================================================== */
         :root {
             --4race-coral: #FF4719;
@@ -449,6 +449,7 @@
         for(let i=1; i<=6; i++) {
             window.fleetState["v"+i] = {
                 fuel: 42.0, currentLap: 0, isInsidePit: false, pitSeconds: 0, interval: null,
+                pitStartTime: null,
                 rotation: ["1", "2", "3", "4"], hasAlerted: false, lastLapTimestamp: null, bestLapMs: null, bestLap: "--:--.---", history: [],
                 conso: { 1: {sec:1.77}, 2: {sec:1.77}, 3: {sec:1.77}, 4: {sec:1.77} }
             };
@@ -487,12 +488,12 @@
                             <div id="predict-box-${id}" class="target-lap-badge" style="font-size:11px; color:#3b82f6; font-weight:bold; margin-top:8px; border: 1px dashed #3b82f6; padding: 4px; border-radius:4px;">🎯 Arrêt idéal : Tour -</div>
                             <div class="progress-container"><div id="bar-${id}" class="progress-bar"></div></div>
                         </div>
-                     <div id="opt-box-${id}" class="pit-options-box">
-                        <label><input type="radio" name="fuel-mode-${id}" id="rad-full-${id}" checked onclick="document.getElementById('input-litres-${id}').disabled = true;"> ⛽ Plein Complet</label>
-                        <label><input type="radio" name="fuel-mode-${id}" id="rad-partial-${id}" onclick="document.getElementById('input-litres-${id}').disabled = false;"> 📥 Ajouter (L) :<input type="number" id="input-litres-${id}" value="15" step="0.5" disabled style="width: 50px; background:#222; border:1px solid #444; color:#fff; text-align:center;"></label>
-                        <label><input type="radio" name="fuel-mode-${id}" id="rad-none-${id}" onclick="document.getElementById('input-litres-${id}').disabled = true;"> ❌ Pas de carburant</label>
-                        <label><input type="checkbox" id="chk-pilot-${id}" checked> 👤 Chgt Pilote</label>
-                    </div>
+                        <div id="opt-box-${id}" class="pit-options-box">
+                            <label><input type="radio" name="fuel-mode-${id}" id="rad-full-${id}" checked onclick="document.getElementById('input-litres-${id}').disabled = true;"> ⛽ Plein Complet</label>
+                            <label><input type="radio" name="fuel-mode-${id}" id="rad-partial-${id}" onclick="document.getElementById('input-litres-${id}').disabled = false;"> 📥 Ajouter (L) :<input type="number" id="input-litres-${id}" value="15" step="0.5" disabled style="width: 50px; background:#222; border:1px solid #444; color:#fff; text-align:center;"></label>
+                            <label><input type="radio" name="fuel-mode-${id}" id="rad-none-${id}" onclick="document.getElementById('input-litres-${id}').disabled = true;"> ❌ Pas de carburant</label>
+                            <label><input type="checkbox" id="chk-pilot-${id}" checked> 👤 Chgt Pilote</label>
+                        </div>
                         <div id="pit-timer-${id}" class="pit-timer-block monospace">00:00.0</div>
                         <div class="action-zone">
                             <button id="btn-lap-${id}" class="btn-quick btn-quick-lap" onclick="window.triggerCarLap('${id}')">Passage Ligne</button>
@@ -556,7 +557,7 @@
                         cInputs[String(p)] = bSec; cFcyInputs[String(p)] = bSec * 0.5;
                     }
                     payload.cars[id] = {
-                        fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
+                        fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, pitStartTime: car.pitStartTime || null, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
                         consoInputs: cInputs, consoFcyInputs: cFcyInputs, carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
                         pilotsInputs: { 1: document.getElementById(`s_${id}_1`)?.value || "", 2: document.getElementById(`s_${id}_2`)?.value || "", 3: document.getElementById(`s_${id}_3`)?.value || "", 4: document.getElementById(`s_${id}_4`)?.value || "" }
                     };
@@ -622,7 +623,10 @@
         };
 
         window.enterCarPit = function(id) {
-            window.fleetState[id].isInsidePit = true; window.fleetState[id].pitSeconds = 0;
+            const now = Date.now();
+            window.fleetState[id].isInsidePit = true; 
+            window.fleetState[id].pitSeconds = 0;
+            window.fleetState[id].pitStartTime = now;
             window.dbLogLiveEventCloud(window.carIdMapping[id], "📥 ENTRÉE BOX STANDS", `${window.fleetState[id].fuel.toFixed(1)} L`, "STAND");
             window.dbPushFullRaceState();
         };
@@ -632,21 +636,20 @@
             const maxF = parseFloat(document.getElementById("setup-maxFuel").value) || 42;
             
             const isFull = document.getElementById(`rad-full-${id}`).checked;
-            const isNone = document.getElementById(`rad-none-${id}`).checked; // Vérifie si "Pas de carburant" est coché
+            const isNone = document.getElementById(`rad-none-${id}`).checked;
         
             if (isFull) { 
                 car.fuel = maxF; 
             } 
             else if (isNone) {
-                // Option "Pas de plein" : On garde le carburant restant à l'entrée sans rien modifier
                 car.fuel = car.fuel; 
             }
             else { 
-                // Option "Ajouter (L)"
                 car.fuel = Math.min(maxF, car.fuel + (parseFloat(document.getElementById(`input-litres-${id}`).value) || 0)); 
             }
         
             if(document.getElementById(`chk-pilot-${id}`).checked) { let old = car.rotation.shift(); car.rotation.push(old); }
+            car.pitStartTime = null;
             car.hasAlerted = false; car.lastLapTimestamp = null;
             window.dbLogLiveEventCloud(window.carIdMapping[id], "🏎️ REPARTIE DES STANDS", `${car.fuel.toFixed(1)} L`, "PISTE");
             window.dbPushFullRaceState();
@@ -717,7 +720,7 @@
                     <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h2 style="font-size:32px; font-weight:900; font-family:monospace;">#${window.carIdMapping[id]}</h2>
-                            <span style="background:${coeff===0.5?'rgba(245,158,11,0.15)':'rgba(34,197,94,0.15)'}; color:${coeff===0.5?'#f59e0b':'#10b981'}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${bText}</span>
+                            <span id="box-badge-${id}" style="background:${coeff===0.5?'rgba(245,158,11,0.15)':'rgba(34,197,94,0.15)'}; color:${coeff===0.5?'#f59e0b':'#10b981'}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${bText}</span>
                         </div>
                         <div style="background:#000; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; font-size:13px;">
                             <div><span style="color:#666; font-size:10px; display:block;">POS</span><strong>${localCar.position || '-'}</strong></div>
@@ -780,8 +783,17 @@
                 const posWidget = document.getElementById(`fleet-pos-${id}`);
                 if(posWidget) posWidget.innerText = localCar.position;
 
-                if(cloudCar.isInsidePit && !localCar.isInsidePit) { localCar.isInsidePit = true; localCar.pitSeconds = cloudCar.pitSeconds || 0; window.startLocalPitTimer(id); }
-                else if(!cloudCar.isInsidePit && localCar.isInsidePit) { clearInterval(localCar.interval); localCar.isInsidePit = false; }
+                localCar.pitStartTime = cloudCar.pitStartTime || null;
+
+                if(cloudCar.isInsidePit) { 
+                    localCar.isInsidePit = true; 
+                    localCar.pitSeconds = cloudCar.pitSeconds || 0; 
+                    window.startLocalPitTimer(id); 
+                }
+                else { 
+                    clearInterval(localCar.interval); 
+                    localCar.isInsidePit = false; 
+                }
             }
             updateVisualsFromState();
         });
@@ -800,12 +812,29 @@
         window.startLocalPitTimer = function(id) {
             const car = window.fleetState[id]; clearInterval(car.interval);
             const limit = parseInt(document.getElementById("setup-pitSec")?.value) || 180;
-            const div = document.getElementById(`pit-timer-${id}`); if(!div) return;
+            const divAdmin = document.getElementById(`pit-timer-${id}`);
             
             car.interval = setInterval(() => {
-                car.pitSeconds += 0.1; let rem = limit - car.pitSeconds;
-                if(rem > 0) { div.innerText = window.formatPitTime(car.pitSeconds); div.style.color = "var(--state-alert)"; }
-                else { div.innerText = window.formatPitTime(car.pitSeconds) + " (OK)"; div.style.color = "var(--state-green)"; }
+                if (!car.isInsidePit || !car.pitStartTime) {
+                    clearInterval(car.interval);
+                    return;
+                }
+
+                car.pitSeconds = (Date.now() - car.pitStartTime) / 1000;
+                let rem = limit - car.pitSeconds;
+                let timeStr = window.formatPitTime(car.pitSeconds);
+
+                if(divAdmin) {
+                    if(rem > 0) { divAdmin.innerText = timeStr; divAdmin.style.color = "var(--state-alert)"; }
+                    else { divAdmin.innerText = timeStr + " (OK)"; divAdmin.style.color = "var(--state-green)"; }
+                }
+
+                const badgeBox = document.getElementById(`box-badge-${id}`);
+                if (badgeBox) {
+                    badgeBox.innerText = rem > 0 ? `STAND: ${timeStr}` : `STAND: OK (${timeStr})`;
+                    badgeBox.style.background = rem > 0 ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.2)";
+                    badgeBox.style.color = rem > 0 ? "var(--state-alert)" : "var(--state-green)";
+                }
             }, 100);
         };
 
@@ -957,85 +986,76 @@
         function closeRacePopup() { document.getElementById("raceAlertPopup").style.display = "none"; }
 
         // --- CODES D'ACCÈS UNIQUES PAR VOITURE ---
-// Permet d'associer un code (ex: BOX531) à un index de voiture (ex: v1)
-window.boxAccessCodes = {
-    "BOX531": "v1", // Voiture #531
-    "BOX183": "v2", // Voiture #183
-    "BOX156": "v3", // Voiture #156
-    "BOX40":  "v4", // Voiture #40
-    "BOX77":  "v5", // Voiture #77
-    "BOX88":  "v6"  // Voiture #88
-};
+        window.boxAccessCodes = {
+            "BOX531": "v1", // Voiture #531
+            "BOX183": "v2", // Voiture #183
+            "BOX156": "v3", // Voiture #156
+            "BOX40":  "v4", // Voiture #40
+            "BOX77":  "v5", // Voiture #77
+            "BOX88":  "v6"  // Voiture #88
+        };
 
-window.checkAccess = function() {
-    const code = document.getElementById("access-code").value.trim().toUpperCase(); // Forcer en majuscules
-    
-    // 1. ACCÈS ADMIN COMPLET
-    if (code === "ADMIN123") { 
-        document.getElementById("login-popup").style.display = "none"; 
-        setReadOnlyMode(false); 
-    } 
-    // 2. ACCÈS BOX GLOBAL (Toutes les voitures en lecture seule, comme avant)
-    else if (code === "BOXG") {
-        document.getElementById("login-popup").style.display = "none"; 
-        document.getElementById("app-sidebar").style.display = "none"; 
-        
-        switchPage('page-box-monitor', ''); 
-        setReadOnlyMode(true); 
-        // Pas de filtrage ici, on laisse la grille afficher toutes les voitures engagées
-    }
-    // 3. ACCÈS BOX INDIVIDUEL (Une seule voiture ciblée)
-    else if (window.boxAccessCodes[code]) { 
-        const targetCarId = window.boxAccessCodes[code]; 
-        
-        document.getElementById("login-popup").style.display = "none"; 
-        document.getElementById("app-sidebar").style.display = "none"; 
-        
-        switchPage('page-box-monitor', ''); 
-        setReadOnlyMode(true); 
-        
-        filtrerBoxPourUneVoiture(targetCarId);
-    } 
-    else { 
-        alert("Code incorrect ! Utilisez ADMIN123, BOXG (Global) ou BOX + N° de voiture (ex: BOX531)"); 
-    }
-};
+        window.checkAccess = function() {
+            const code = document.getElementById("access-code").value.trim().toUpperCase();
+            
+            // 1. ACCÈS ADMIN COMPLET
+            if (code === "ADMIN123") { 
+                document.getElementById("login-popup").style.display = "none"; 
+                setReadOnlyMode(false); 
+            } 
+            // 2. ACCÈS BOX GLOBAL (Toutes les voitures en lecture seule, comme avant)
+            else if (code === "BOXG") {
+                document.getElementById("login-popup").style.display = "none"; 
+                document.getElementById("app-sidebar").style.display = "none"; 
+                
+                switchPage('page-box-monitor', ''); 
+                setReadOnlyMode(true); 
+            }
+            // 3. ACCÈS BOX INDIVIDUEL (Une seule voiture ciblée)
+            else if (window.boxAccessCodes[code]) { 
+                const targetCarId = window.boxAccessCodes[code]; 
+                
+                document.getElementById("login-popup").style.display = "none"; 
+                document.getElementById("app-sidebar").style.display = "none"; 
+                
+                switchPage('page-box-monitor', ''); 
+                setReadOnlyMode(true); 
+                
+                filtrerBoxPourUneVoiture(targetCarId);
+            } 
+            else { 
+                alert("Code incorrect ! Utilisez ADMIN123, BOXG (Global) ou BOX + N° de voiture (ex: BOX531)"); 
+            }
+        };
 
-function setReadOnlyMode(st) {
-    // Cache ou montre les boutons d'action sur la grille principale
-    document.querySelectorAll('.action-zone, .reset-btn').forEach(el => { 
-        el.style.display = st ? "none" : "flex"; 
-    });
-    if (st) { 
-        document.getElementById("app-header").style.display = "none"; 
-    }
-}
+        function setReadOnlyMode(st) {
+            document.querySelectorAll('.action-zone, .reset-btn').forEach(el => { 
+                el.style.display = st ? "none" : "flex"; 
+            });
+            if (st) { 
+                document.getElementById("app-header").style.display = "none"; 
+            }
+        }
 
-// --- FONCTION DE FILTRAGE DYNAMIQUE ---
-function filtrerBoxPourUneVoiture(carId) {
-    // On force la grille du Moniteur Box à n'afficher qu'une seule colonne centrée
-    const boxGrid = document.getElementById("box-monitor-grid");
-    if (boxGrid) {
-        boxGrid.style.gridTemplateColumns = "1fr";
-        boxGrid.style.maxWidth = "450px";
-        boxGrid.style.margin = "0 auto";
-    }
+        // --- FONCTION DE FILTRAGE DYNAMIQUE ---
+        function filtrerBoxPourUneVoiture(carId) {
+            const boxGrid = document.getElementById("box-monitor-grid");
+            if (boxGrid) {
+                boxGrid.style.gridTemplateColumns = "1fr";
+                boxGrid.style.maxWidth = "450px";
+                boxGrid.style.margin = "0 auto";
+            }
 
-    // On crée un style CSS dynamique pour masquer toutes les cartes du moniteur
-    // SAUF celle qui correspond à l'index de la voiture connectée
-    const style = document.createElement('style');
-    
-    // Détermine l'index numérique (ex: v1 -> 1, v2 -> 2)
-    const carIndex = carId.replace('v', '');
-    
-    // Règle CSS : on cache tous les enfants de la grille, sauf le X-ième (nth-child)
-    style.innerHTML = `
-        #box-monitor-grid > div { display: none !important; }
-        #box-monitor-grid > div:nth-child(${carIndex}) { display: flex !important; }
-    `;
-    document.head.appendChild(style);
-}
-    
+            const style = document.createElement('style');
+            const carIndex = carId.replace('v', '');
+            
+            style.innerHTML = `
+                #box-monitor-grid > div { display: none !important; }
+                #box-monitor-grid > div:nth-child(${carIndex}) { display: flex !important; }
+            `;
+            document.head.appendChild(style);
+        }
+            
         window.formatPitTime = function(s) { return `${Math.floor(s/60).toString().padStart(2,'0')}:${Math.floor(s%60).toString().padStart(2,'0')}.${Math.floor((s%1)*10)}`; };
     </script>
 </body>
