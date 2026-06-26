@@ -579,14 +579,14 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 document.getElementById("setup-maxFuel").value = circuit.maxFuel;
             }
             
-            // On récupère la conso par défaut du circuit, ou 1.77 si elle n'est pas définie
+            // On récupère la conso par défaut du circuit (ex: 1.38 pour le Castellet)
             const consoCircuit = (circuit.conso && circuit.conso[0]) ? circuit.conso[0].sec : 1.77;
             
             for(let i=1; i<=6; i++) {
                 let id = "v" + i; 
                 const car = window.fleetState[id];
                 
-                // On applique la consommation du circuit sélectionné à chaque pilote
+                // On applique la consommation du circuit sélectionné à chaque pilote dans l'état local
                 for(let p=1; p<=4; p++) {
                     if(!car.conso[p]) car.conso[p] = {};
                     car.conso[p].sec = consoCircuit;
@@ -597,12 +597,20 @@ window.dbAppliquerCircuit = function(circuitKey) {
             update(ref(db, 'race_state'), { track_ref_sec: circuit.refSecSec, track_ref_pluie: circuit.refSecPluie });
             window.dbPushFullRaceState();
             
-            // 🔄 CORRECTIF VISUEL : Force la mise à jour complète de l'affichage sur ton écran
+            // 🔄 CORRECTIF VISUEL : Met à jour les calculs de la flotte globale
             updateVisualsFromState(); 
             
-            // Si le Drawer d'une voiture est actuellement ouvert, on le rafraîchit aussi
+            // 🛠️ CORRECTIF DRAWER DYNAMIQUE : Si le panneau est ouvert à droite de l'écran, 
+            // on cible directement les éléments HTML de l'interface pour y écrire la bonne valeur
             if (window.activeCarIdInDrawer) {
-                window.openDrawer(window.activeCarIdInDrawer);
+                const currentOpenCar = window.fleetState[window.activeCarIdInDrawer];
+                if (document.getElementById("drawer-c-p1")) document.getElementById("drawer-c-p1").value = currentOpenCar.conso[1].sec;
+                if (document.getElementById("drawer-c-p2")) document.getElementById("drawer-c-p2").value = currentOpenCar.conso[2].sec;
+                if (document.getElementById("drawer-c-p3")) document.getElementById("drawer-c-p3").value = currentOpenCar.conso[3].sec;
+                if (document.getElementById("drawer-c-p4")) document.getElementById("drawer-c-p4").value = currentOpenCar.conso[4].sec;
+                
+                // On recalcule aussi le planificateur prédictif du bas du Drawer
+                window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
             }
 
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
