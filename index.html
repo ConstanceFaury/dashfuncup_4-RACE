@@ -445,14 +445,12 @@
             v6: { 1: "PiloteE", 2: "PiloteF", 3: "PiloteG", 4: "PiloteH" }
         };
 
-        window.fleetState = {};
-        for(let i=1; i<=6; i++) {
-            window.fleetState["v"+i] = {
-                fuel: 42.0, currentLap: 0, isInsidePit: false, pitSeconds: 0, interval: null,
-                rotation: ["1", "2", "3", "4"], hasAlerted: false, lastLapTimestamp: null, bestLapMs: null, bestLap: "--:--.---", history: [],
-                conso: { 1: {sec:1.77}, 2: {sec:1.77}, 3: {sec:1.77}, 4: {sec:1.77} }
-            };
-        }
+     window.fleetState["v"+i] = {
+        fuel: 42.0, currentLap: 0, isInsidePit: false, pitSeconds: 0, interval: null,
+        pitStartTime: null, // 👈 RAJOUTER CETTE LIGNE
+        rotation: ["1", "2", "3", "4"], hasAlerted: false, lastLapTimestamp: null, bestLapMs: null, bestLap: "--:--.---", history: [],
+        conso: { 1: {sec:1.77}, 2: {sec:1.77}, 3: {sec:1.77}, 4: {sec:1.77} }
+    };
 
         // INITIALISATION HTML UNIQUE SANS RÉPÉTITION
         function buildHTMLElementsStructure() {
@@ -556,7 +554,7 @@
                         cInputs[String(p)] = bSec; cFcyInputs[String(p)] = bSec * 0.5;
                     }
                     payload.cars[id] = {
-                        fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
+                        fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, pitStartTime: car.pitStartTime || null, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
                         consoInputs: cInputs, consoFcyInputs: cFcyInputs, carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
                         pilotsInputs: { 1: document.getElementById(`s_${id}_1`)?.value || "", 2: document.getElementById(`s_${id}_2`)?.value || "", 3: document.getElementById(`s_${id}_3`)?.value || "", 4: document.getElementById(`s_${id}_4`)?.value || "" }
                     };
@@ -621,8 +619,11 @@
             window.dbPushFullRaceState();
         };
 
-        window.enterCarPit = function(id) {
-            window.fleetState[id].isInsidePit = true; window.fleetState[id].pitSeconds = 0;
+      window.enterCarPit = function(id) {
+            const now = Date.now();
+            window.fleetState[id].isInsidePit = true; 
+            window.fleetState[id].pitSeconds = 0;
+            window.fleetState[id].pitStartTime = now; // 👈 Enregistre l'heure d'entrée
             window.dbLogLiveEventCloud(window.carIdMapping[id], "📥 ENTRÉE BOX STANDS", `${window.fleetState[id].fuel.toFixed(1)} L`, "STAND");
             window.dbPushFullRaceState();
         };
@@ -647,6 +648,7 @@
             }
         
             if(document.getElementById(`chk-pilot-${id}`).checked) { let old = car.rotation.shift(); car.rotation.push(old); }
+            car.pitStartTime = null;
             car.hasAlerted = false; car.lastLapTimestamp = null;
             window.dbLogLiveEventCloud(window.carIdMapping[id], "🏎️ REPARTIE DES STANDS", `${car.fuel.toFixed(1)} L`, "PISTE");
             window.dbPushFullRaceState();
@@ -754,6 +756,7 @@
         }
 
         // ECOUTE PERMANENTE CLOUD FIREBASE
+       // ECOUTE PERMANENTE CLOUD FIREBASE
         onValue(ref(db, 'race_state'), (snapshot) => {
             const data = snapshot.val(); if(!data) return;
             window.isFCY = data.isFCY || false; window.isRedFlag = data.isRedFlag || false; window.weatherMode = data.weatherMode || "sec"; window.enemyDatabase = data.enemyDatabase || [];
@@ -780,8 +783,17 @@
                 const posWidget = document.getElementById(`fleet-pos-${id}`);
                 if(posWidget) posWidget.innerText = localCar.position;
 
-                if(cloudCar.isInsidePit && !localCar.isInsidePit) { localCar.isInsidePit = true; localCar.pitSeconds = cloudCar.pitSeconds || 0; window.startLocalPitTimer(id); }
-                else if(!cloudCar.isInsidePit && localCar.isInsidePit) { clearInterval(localCar.interval); localCar.isInsidePit = false; }
+                // --- INTEGRATION DU TIMEOUT CLOUD DU PIT ---
+                localCar.pitStartTime = cloudCar.pitStartTime || null; // Capture du moment exact de l'arrêt
+
+                if (cloudCar.isInsidePit) { 
+                    localCar.isInsidePit = true; 
+                    localCar.pitSeconds = cloudCar.pitSeconds || 0; 
+                    window.startLocalPitTimer(id); // Déclenche/maintient le chrono synchro
+                } else { 
+                    clearInterval(localCar.interval); 
+                    localCar.isInsidePit = false; 
+                }
             }
             updateVisualsFromState();
         });
@@ -797,17 +809,53 @@
         });
 
         // PIT COUNTER INTERN CODE
-        window.startLocalPitTimer = function(id) {
-            const car = window.fleetState[id]; clearInterval(car.interval);
-            const limit = parseInt(document.getElementById("setup-pitSec")?.value) || 180;
-            const div = document.getElementById(`pit-timer-${id}`); if(!div) return;
-            
-            car.interval = setInterval(() => {
-                car.pitSeconds += 0.1; let rem = limit - car.pitSeconds;
-                if(rem > 0) { div.innerText = window.formatPitTime(car.pitSeconds); div.style.color = "var(--state-alert)"; }
-                else { div.innerText = window.formatPitTime(car.pitSeconds) + " (OK)"; div.style.color = "var(--state-green)"; }
-            }, 100);
-        };
+window.startLocalPitTimer = function(id) {
+    const car = window.fleetState[id]; 
+    clearInterval(car.interval);
+    
+    const limit = parseInt(document.getElementById("setup-pitSec")?.value) || 180;
+    const divAdmin = document.getElementById(`pit-timer-${id}`); 
+    
+    car.interval = setInterval(() => {
+        if (!car.isInsidePit || !car.pitStartTime) {
+            clearInterval(car.interval);
+            return;
+        }
+
+        // Calcul du temps réel écoulé depuis l'entrée (en secondes)
+        car.pitSeconds = (Date.now() - car.pitStartTime) / 1000;
+        let rem = limit - car.pitSeconds;
+        let timeStr = window.formatPitTime(car.pitSeconds);
+
+        // 1. Mise à jour sur l'interface Admin (si le widget existe)
+        if (divAdmin) {
+            if (rem > 0) { 
+                divAdmin.innerText = timeStr; 
+                divAdmin.style.color = "var(--state-alert)"; 
+            } else { 
+                divAdmin.innerText = timeStr + " (OK)"; 
+                divAdmin.style.color = "var(--state-green)"; 
+            }
+        }
+
+        // 2. Mise à jour sur l'interface TV du stand (recherche dynamique du badge de statut)
+        const boxMonitorGrid = document.getElementById("box-monitor-grid");
+        if (boxMonitorGrid) {
+            // On cherche la carte de la voiture dans la grille TV du stand
+            const carCards = boxMonitorGrid.children;
+            // L'index de la voiture (v1 -> 0, v2 -> 1, etc.)
+            const idx = parseInt(id.replace('v', '')) - 1; 
+            if (carCards[idx]) {
+                const badgeStatus = carCards[idx].querySelector('span'); // Le badge "Au Stand"
+                if (badgeStatus) {
+                    badgeStatus.innerText = rem > 0 ? `STAND: ${timeStr}` : `STAND: OK (${timeStr})`;
+                    badgeStatus.style.background = rem > 0 ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.2)";
+                    badgeStatus.style.color = rem > 0 ? "var(--state-alert)" : "var(--state-green)";
+                }
+            }
+        }
+    }, 100);
+};
 
         buildHTMLElementsStructure();
     </script>
