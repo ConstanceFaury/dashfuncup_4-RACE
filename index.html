@@ -571,20 +571,32 @@
             set(ref(db, `logs/${now.getTime()}`), { time: now.toLocaleTimeString('fr-FR'), carNum: carNum, action: action, fuel: fuel, status: trackLabel });
         };
 
-        window.dbAppliquerCircuit = function(circuitKey) {
-            const circuit = window.circuitsDatabase[circuitKey]; if (!circuit) return;
-            if(document.getElementById("setup-maxFuel")) document.getElementById("setup-maxFuel").value = circuit.maxFuel;
+window.dbAppliquerCircuit = function(circuitKey) {
+            const circuit = window.circuitsDatabase[circuitKey]; 
+            if (!circuit) return;
+            
+            if(document.getElementById("setup-maxFuel")) {
+                document.getElementById("setup-maxFuel").value = circuit.maxFuel;
+            }
+            
+            // On récupère la conso par défaut du circuit, ou 1.77 si elle n'est pas définie
+            const consoCircuit = (circuit.conso && circuit.conso[0]) ? circuit.conso[0].sec : 1.77;
+            
             for(let i=1; i<=6; i++) {
-                let id = "v" + i; const car = window.fleetState[id];
+                let id = "v" + i; 
+                const car = window.fleetState[id];
+                
+                // On applique la consommation du circuit sélectionné à chaque pilote
                 for(let p=1; p<=4; p++) {
                     if(!car.conso[p]) car.conso[p] = {};
-                    car.conso[p].sec = 1.77;
+                    car.conso[p].sec = consoCircuit;
                 }
                 car.fuel = circuit.maxFuel;
             }
+            
             update(ref(db, 'race_state'), { track_ref_sec: circuit.refSecSec, track_ref_pluie: circuit.refSecPluie });
             window.dbPushFullRaceState();
-            alert(`Circuit ${circuit.name} appliqué !`);
+            alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
         };
 
         window.dbResetEntireRace = function() {
