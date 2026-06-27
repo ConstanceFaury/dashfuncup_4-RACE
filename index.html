@@ -456,7 +456,7 @@
         }
 
         // INITIALISATION HTML UNIQUE SANS RÉPÉTITION
-        function buildHTMLElementsStructure() {
+function buildHTMLElementsStructure() {
             const containerCards = document.getElementById("fleet-cards-container");
             const containerChassis = document.getElementById("setup-chassis-inputs-zone");
             const containerCrews = document.getElementById("setup-crew-inputs-zone");
@@ -480,7 +480,22 @@
                                 <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Δ: <span id="fleet-delta-${id}">--</span></div>
                             </div>
                         </div>
-                        <div><span style="font-size:9px; color:var(--4race-text-muted); text-transform:uppercase; font-weight:bold;">Pilote</span><div id="fleet-pilot-${id}" style="font-weight:bold; font-size:14px;">-</div></div>
+                        <div>
+                            <span style="font-size:9px; color:var(--4race-text-muted); text-transform:uppercase; font-weight:bold;">Pilote</span>
+                            <div id="fleet-pilot-${id}" style="font-weight:bold; font-size:14px;">-</div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px dashed var(--4race-card-border); margin-top: 2px;">
+                            <div>
+                                <span style="font-size:9px; color:var(--4race-text-muted); text-transform:uppercase; font-weight:bold;">⏳ Relais Restant</span>
+                                <div id="stint-time-${id}" style="font-weight:bold; font-size:12px; color: var(--state-fcy);">-- min</div>
+                            </div>
+                            <div>
+                                <span style="font-size:9px; color:var(--4race-text-muted); text-transform:uppercase; font-weight:bold;">👤 Prochain (Next)</span>
+                                <div id="next-pilot-${id}" style="font-weight:bold; font-size:12px; color: #a855f7;">-</div>
+                            </div>
+                        </div>
+
                         <div class="fuel-section">
                             <div id="fuel-val-${id}" class="fuel-main monospace">42.0L</div>
                             <div class="fuel-sub">Tours restants : <strong id="laps-${id}" style="color:#fff;">-</strong></div>
@@ -766,6 +781,26 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 document.getElementById(`predict-box-${id}`).innerText = `🎯 Arrêt idéal : Tour ${localCar.currentLap + lapsLeft}`;
                 document.getElementById(`bar-${id}`).style.width = ((localCar.fuel / maxFuel) * 100) + "%";
 
+                // --- ⏳ CALCUL STRATÉGIQUE DES MINUTES DE RELAIS RESTANTES ---
+                const currentRefSec = window.weatherMode === "sec" ? (window.fleetState.track_ref_sec || 185) : (window.fleetState.track_ref_pluie || 205);
+                const fcyMultiplier = window.isFCY ? 1.4 : 1.0;
+                const totalSecondsLeft = lapsLeft * currentRefSec * fcyMultiplier;
+                const minutesLeft = Math.floor(totalSecondsLeft / 60);
+
+                const stintTimeWidget = document.getElementById(`stint-time-${id}`);
+                if (stintTimeWidget) {
+                    stintTimeWidget.innerText = localCar.isInsidePit ? "🛒 Au Stand" : (minutesLeft > 0 ? `~ ${minutesLeft} min` : "🚨 BOX !");
+                }
+
+                // --- 👤 DÉTERMINATION DU PROCHAIN PILOTE (NEXT) ---
+                const nextPilotIdx = localCar.rotation[1] || "2";
+                const nextPilotName = window.pilotsDatabase[id][nextPilotIdx] || `P${nextPilotIdx}`;
+                
+                const nextPilotWidget = document.getElementById(`next-pilot-${id}`);
+                if (nextPilotWidget) {
+                    nextPilotWidget.innerText = nextPilotName;
+                }
+
                 // STOP ESTIMÉ CHRONO HEURE
                 if(lapsLeft > 0) {
                     const refS = window.weatherMode === "sec" ? 185 : 205;
@@ -796,6 +831,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 hArr.slice(-5).reverse().forEach(l => {
                     hRows += `<tr style="border-bottom:1px solid #222;"><td style="padding:4px 0;">Tour ${l.lap}</td><td style="color:${l.time===localCar.bestLap?'#a855f7':'#fff'}">${l.time}</td><td style="color:${l.delta.startsWith('+')?'#ef4444':'#10b981'}">${l.delta}</td></tr>`;
                 });
+
                 boxMonitorHtml += `
                     <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -807,6 +843,12 @@ window.dbAppliquerCircuit = function(circuitKey) {
                             <div style="text-align:right;"><span style="color:#666; font-size:10px; display:block;">BEST</span><strong style="color:#a855f7; font-family:monospace;">${localCar.bestLap}</strong></div>
                         </div>
                         <div><span style="color:#666; font-size:10px; text-transform:uppercase;">Pilote</span><div style="font-size:16px; font-weight:bold;">${pName}</div></div>
+                        
+                        <div style="display:flex; justify-content:space-between; background:#000; padding:8px 12px; border-radius:6px; font-size:12px; border: 1px solid #222;">
+                            <div><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">⏳ Temps Relais</span><strong style="color:var(--state-fcy);">${localCar.isInsidePit ? '🛒 Stand' : minutesLeft + ' min'}</strong></div>
+                            <div style="text-align:right;"><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">👤 Prochain Pilote</span><strong style="color:#a855f7;">${nextPilotName}</strong></div>
+                        </div>
+
                         <div style="background:#000; padding:12px; border-radius:6px; text-align:center;">
                             <div style="font-size:13px; color:#ccc;">Tour en cours : <strong>${localCar.currentLap}</strong></div>
                             <div style="font-size:11px; color:#888; margin-top:2px;">Tours restants : <strong style="color:#fff;">${lapsLeft}</strong></div>
@@ -838,6 +880,8 @@ window.dbAppliquerCircuit = function(circuitKey) {
 
         // ECOUTE PERMANENTE CLOUD FIREBASE
         onValue(ref(db, 'race_state'), (snapshot) => {
+            window.fleetState.track_ref_sec = data.track_ref_sec || 185;
+            window.fleetState.track_ref_pluie = data.track_ref_pluie || 205;
             const data = snapshot.val(); if(!data) return;
             window.isFCY = data.isFCY || false; window.isRedFlag = data.isRedFlag || false; window.weatherMode = data.weatherMode || "sec"; window.enemyDatabase = data.enemyDatabase || [];
             
