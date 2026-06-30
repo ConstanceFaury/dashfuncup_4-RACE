@@ -484,8 +484,8 @@
                     <div id="card-${id}" class="car-card">
                         <div class="car-header">
                             <div>
-                                <button class="car-num lbl-${id}" onclick="window.openDrawer('${id}')">#${window.carIdMapping[id]}</button>
-                                <span id="fleet-team-${id}" style="font-size:12px; color:var(--4race-text-muted); font-weight:600; margin-left:8px; display:block;">${window.teamNameMapping[id]}</span>
+                               <button class="car-num lbl-${id}" onclick="window.openDrawer('${id}')">#${window.carIdMapping[id]}</button>
+                                <span id="fleet-team-${id}" style="font-size:12px; color:var(--4race-text-muted); font-weight:600; display:block; margin-top:2px;">${window.teamNameMapping[id]}</span>
                             </div>
                             <span id="badge-${id}" class="status-badge badge-piste">En Piste</span>
                         </div>
@@ -535,12 +535,12 @@
                     </div>
                 `;
 
-                chassisHtml += `
-                    <div id="block-setup-${id}" class="form-row" style="background: rgba(255,255,255,0.01); padding: 10px; border-radius: 8px; border: 1px solid var(--4race-card-border);">
-                        <div class="form-group"><label>N° Châssis Voie ${i}</label><input type="number" id="setup-${id}" value="${window.carIdMapping[id]}" onchange="window.updateChassisNumberFromSetup('${id}', this.value)"></div>
-                        <div class="form-group"><label>Nom Team ${i}</label><input type="text" id="setup-team-${id}" value="${window.teamNameMapping[id]}" onchange="window.updateTeamNameFromSetup('${id}', this.value)"></div>
-                    </div>
-                `;
+             chassisHtml += `
+                <div id="block-setup-${id}" style="display:flex; gap:10px; width:100%; margin-bottom:8px;">
+                    <div class="form-group" style="flex:1;"><label>N° Châssis ${i}</label><input type="number" id="setup-${id}" value="${window.carIdMapping[id]}" onchange="window.updateChassisNumberFromSetup('${id}', this.value)"></div>
+                    <div class="form-group" style="flex:2;"><label>Nom Team ${i}</label><input type="text" id="setup-team-${id}" value="${window.teamNameMapping[id]}" onchange="window.updateTeamNameFromSetup('${id}', this.value)"></div>
+                </div>
+            `;
 
                 crewsHtml += `
                     <div id="crew-${id}" style="background:#000; padding:12px; border-radius:8px; border:1px solid var(--4race-card-border);">
@@ -947,15 +947,13 @@
                 localCar.bestLap = cloudCar.bestLap || "--:--.---";
                 localCar.bestLapMs = cloudCar.bestLapMs || null;
                 localCar.history = cloudCar.history ? (Array.isArray(cloudCar.history) ? cloudCar.history : Object.values(cloudCar.history)) : [];
-                
-                // Extraction et mise à jour du numéro et du nom de l'équipe
+
                 window.carIdMapping[id] = cloudCar.carNumInput || window.carIdMapping[id];
                 window.teamNameMapping[id] = cloudCar.teamNameInput || "";
-                
-                // Mettre à jour les labels statiques et dynamiques du DOM
                 document.querySelectorAll(`.lbl-${id}`).forEach(el => { el.innerText = "#" + window.carIdMapping[id]; });
-                const teamLabel = document.getElementById(`fleet-team-${id}`);
-                if (teamLabel) teamLabel.innerText = window.teamNameMapping[id];
+                if(document.getElementById(`fleet-team-${id}`)) document.getElementById(`fleet-team-${id}`).innerText = window.teamNameMapping[id];
+                if(document.getElementById(`setup-${id}`) && document.activeElement !== document.getElementById(`setup-${id}`)) document.getElementById(`setup-${id}`).value = window.carIdMapping[id];
+                if(document.getElementById(`setup-team-${id}`) && document.activeElement !== document.getElementById(`setup-team-${id}`)) document.getElementById(`setup-team-${id}`).value = window.teamNameMapping[id];
                 
                 const setupChassisInput = document.getElementById(`setup-${id}`);
                 if (setupChassisInput && document.activeElement !== setupChassisInput) setupChassisInput.value = window.carIdMapping[id];
@@ -1054,8 +1052,7 @@
 
         window.updateTeamNameFromSetup = function(id, val) {
             window.teamNameMapping[id] = val;
-            const teamLabel = document.getElementById(`fleet-team-${id}`);
-            if (teamLabel) teamLabel.innerText = val;
+            if(document.getElementById(`fleet-team-${id}`)) document.getElementById(`fleet-team-${id}`).innerText = val;
             window.dbPushFullRaceState();
         };
 
