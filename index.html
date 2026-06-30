@@ -706,7 +706,7 @@
 
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
         };
-      window.exportRaceToExcel = function() {
+        window.exportRaceToExcel = function() {
             // Vérification de la présence des logs globaux
             const logs = window.allRaceLogs || [];
             if (logs.length === 0) {
@@ -716,13 +716,14 @@
 
             // \uFEFF insère le BOM UTF-8 pour une ouverture directe et propre sous Excel (gestion des accents)
             let csvContent = "\uFEFF";
-            csvContent += "Nom Team;N° Voiture;Pilote;Position;État Piste;N° Tour;Temps au Tour;Carburant\n";
+            csvContent += "Nom Team;N° Voiture;Pilote;Position;N° Tour;Temps au Tour;Carburant\n";
 
             let hasData = false;
 
-            // Tri chronologique des logs du plus ancien au plus récent
+            // On filtre et trie les logs du plus ancien au plus récent (ordre chronologique de la course)
             const sortedLogs = [...logs].sort((a, b) => {
-                return (a.time || "").localeCompare(b.time || "");
+                // Si les objets ont un timestamp ou un ID dans Firebase, on s'assure de l'ordre croissant
+                return (a.timestamp || 0) - (b.timestamp || 0); 
             });
 
             sortedLogs.forEach(function(log) {
@@ -734,6 +735,7 @@
                     let carNum = log.carNum ? String(log.carNum).replace('#', '') : "";
                     let teamName = "";
                     
+                    // On cherche le nom de l'équipe dans notre mapping en comparant les numéros de châssis
                     if (window.carIdMapping) {
                         let internalId = Object.keys(window.carIdMapping).find(key => String(window.carIdMapping[key]) === carNum);
                         if (internalId && window.teamNameMapping) {
@@ -741,7 +743,7 @@
                         }
                     }
 
-                    // 2. Récupération de la position de la voiture
+                    // 2. Récupération de la position de la voiture au moment du log
                     let position = "-";
                     if (window.carIdMapping) {
                         let internalId = Object.keys(window.carIdMapping).find(key => String(window.carIdMapping[key]) === carNum);
@@ -750,46 +752,46 @@
                         }
                     }
 
-                    // 3. Récupération de l'état de la piste au moment du tour (Green, FCY...)
-                    let trackStatus = log.status || "-";
-                    if (trackStatus === "MANUEL") trackStatus = "🟢 VERT"; // Nettoyage visuel pour l'Excel
-
-                    // 4. Décomposition de la chaîne du tour
+                    // 3. Décomposition de la chaîne "Tour #X par NomPilote" ou "Tour #X - Chrono (NomPilote)"
                     let lapNum = "";
                     let lapTime = "";
                     let pilotName = "";
 
+                    // Extraction du numéro de tour
                     let lapMatch = log.action.match(/Tour\s*#(\d+)/i);
                     if (lapMatch) {
                         lapNum = lapMatch[1];
                     }
 
+                    // Extraction du pilote et du chrono
                     if (log.action.includes(" - ")) {
+                        // Format type: "Tour #20 - 2:25.013 (Pilote Fictif)"
                         let parts = log.action.split(" - ");
                         if (parts[1]) {
                             let chronoPart = parts[1].split(" ");
-                            lapTime = chronoPart[0] || "";
+                            lapTime = chronoPart[0] || ""; // "2:25.013"
                             
                             let pilotMatch = parts[1].match(/\((.*?)\)/);
                             if (pilotMatch) {
-                                pilotName = pilotMatch[1];
+                                pilotName = pilotMatch[1]; // "Pilote Fictif"
                             }
                         }
                     } else if (log.action.includes(" par ")) {
+                        // Format alternatif: "Tour #X par NomPilote"
                         let parts = log.action.split(" par ");
                         pilotName = parts[1] || "";
-                        lapTime = "--:--.---";
+                        lapTime = "--:--.---"; // Si le chrono pur n'est pas écrit textuellement dans la chaîne du log
                     }
 
+                    // Nettoyage de la chaîne carburant (ex: "27.7 L" -> "27.7")
                     let fuelClean = log.fuel ? String(log.fuel).replace(' L', '').trim() : "";
 
-                    // Création de la ligne avec la nouvelle colonne État Piste
+                    // Création de la ligne CSV clean
                     let row = [
                         teamName,
                         "#" + carNum,
                         pilotName || "-",
                         position,
-                        trackStatus,
                         lapNum,
                         lapTime || "--:--.---",
                         fuelClean
@@ -804,7 +806,7 @@
                 return;
             }
 
-            // Génération du fichier
+            // Génération et déclenchement du téléchargement du fichier
             let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             let link = document.createElement("a");
             let url = URL.createObjectURL(blob);
@@ -817,7 +819,6 @@
             link.click();
             document.body.removeChild(link);
         };
-        
         window.dbResetEntireRace = function() {
             if(confirm("🚨 EFFACER LA COURSE DÉFINITIVEMENT ?")) {
                 remove(ref(db, 'logs'));
