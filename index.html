@@ -238,6 +238,8 @@
             </div>
             <div>
                 <button class="reset-btn" onclick="dbResetEntireRace()">🔄 Reset Nouvelle Course</button>
+                <button class="reset-btn" style="background-color: #22C55E; color: white; border-color: #22C55E;" onclick="exportRaceToExcel()">📊 Exporter Excel</button>
+            </div>
             </div>
         </header>
 
@@ -704,7 +706,119 @@
 
             alert(`Circuit ${circuit.name} appliqué (Conso étalon : ${consoCircuit} L/tr) !`);
         };
-        
+        window.exportRaceToExcel = function() {
+            // Vérification de la présence des logs globaux
+            const logs = window.allRaceLogs || [];
+            if (logs.length === 0) {
+                alert("Aucun tour chronométré n'a été enregistré dans les logs pour le moment.");
+                return;
+            }
+
+            // \uFEFF insère le BOM UTF-8 pour une ouverture directe et propre sous Excel (gestion des accents)
+            let csvContent = "\uFEFF";
+            csvContent += "Nom Team;N° Voiture;Pilote;Position;N° Tour;Temps au Tour;Carburant\n";
+
+            let hasData = false;
+
+            // On filtre et trie les logs du plus ancien au plus récent (ordre chronologique de la course)
+            const sortedLogs = [...logs].sort((a, b) => {
+                // Si les objets ont un timestamp ou un ID dans Firebase, on s'assure de l'ordre croissant
+                return (a.timestamp || 0) - (b.timestamp || 0); 
+            });
+
+            sortedLogs.forEach(function(log) {
+                // On cible uniquement les lignes de log qui enregistrent un passage de tour complet
+                if (log.action && log.action.includes("Tour #")) {
+                    hasData = true;
+
+                    // 1. Extraction du Numéro de voiture et recherche du Nom de Team associé
+                    let carNum = log.carNum ? String(log.carNum).replace('#', '') : "";
+                    let teamName = "";
+                    
+                    // On cherche le nom de l'équipe dans notre mapping en comparant les numéros de châssis
+                    if (window.carIdMapping) {
+                        let internalId = Object.keys(window.carIdMapping).find(key => String(window.carIdMapping[key]) === carNum);
+                        if (internalId && window.teamNameMapping) {
+                            teamName = window.teamNameMapping[internalId] || "";
+                        }
+                    }
+
+                    // 2. Récupération de la position de la voiture au moment du log
+                    let position = "-";
+                    if (window.carIdMapping) {
+                        let internalId = Object.keys(window.carIdMapping).find(key => String(window.carIdMapping[key]) === carNum);
+                        if (internalId && window.fleetState && window.fleetState[internalId]) {
+                            position = window.fleetState[internalId].position || "-";
+                        }
+                    }
+
+                    // 3. Décomposition de la chaîne "Tour #X par NomPilote" ou "Tour #X - Chrono (NomPilote)"
+                    let lapNum = "";
+                    let lapTime = "";
+                    let pilotName = "";
+
+                    // Extraction du numéro de tour
+                    let lapMatch = log.action.match(/Tour\s*#(\d+)/i);
+                    if (lapMatch) {
+                        lapNum = lapMatch[1];
+                    }
+
+                    // Extraction du pilote et du chrono
+                    if (log.action.includes(" - ")) {
+                        // Format type: "Tour #20 - 2:25.013 (Pilote Fictif)"
+                        let parts = log.action.split(" - ");
+                        if (parts[1]) {
+                            let chronoPart = parts[1].split(" ");
+                            lapTime = chronoPart[0] || ""; // "2:25.013"
+                            
+                            let pilotMatch = parts[1].match(/\((.*?)\)/);
+                            if (pilotMatch) {
+                                pilotName = pilotMatch[1]; // "Pilote Fictif"
+                            }
+                        }
+                    } else if (log.action.includes(" par ")) {
+                        // Format alternatif: "Tour #X par NomPilote"
+                        let parts = log.action.split(" par ");
+                        pilotName = parts[1] || "";
+                        lapTime = "--:--.---"; // Si le chrono pur n'est pas écrit textuellement dans la chaîne du log
+                    }
+
+                    // Nettoyage de la chaîne carburant (ex: "27.7 L" -> "27.7")
+                    let fuelClean = log.fuel ? String(log.fuel).replace(' L', '').trim() : "";
+
+                    // Création de la ligne CSV clean
+                    let row = [
+                        teamName,
+                        "#" + carNum,
+                        pilotName || "-",
+                        position,
+                        lapNum,
+                        lapTime || "--:--.---",
+                        fuelClean
+                    ];
+
+                    csvContent += row.join(";") + "\n";
+                }
+            });
+
+            if (!hasData) {
+                alert("Aucune ligne de type 'Tour #' n'a été détectée dans l'historique actuel.");
+                return;
+            }
+
+            // Génération et déclenchement du téléchargement du fichier
+            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            let url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            
+            let dateStr = new Date().toISOString().slice(0, 10);
+            link.setAttribute("download", `Donnees_Course_${dateStr}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
         window.dbResetEntireRace = function() {
             if(confirm("🚨 EFFACER LA COURSE DÉFINITIVEMENT ?")) {
                 remove(ref(db, 'logs'));
