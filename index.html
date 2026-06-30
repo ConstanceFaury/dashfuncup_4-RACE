@@ -860,62 +860,85 @@
                 badge.innerText = bText; badge.className = bClass;
 
          // --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (CORRIGÉE) ---
-            let hRows = ""; 
-            // On va chercher les derniers chronos de CETTE voiture dans les logs de la course
-            const globalLogs = window.allRaceLogs || []; 
-            const carNumStr = String(window.carIdMapping[id]);
-            
-            const filterCarLaps = globalLogs
-                .filter(l => String(l.carNum) === carNumStr && l.action.includes("Tour #"))
-                .slice(-5); // On prend les 5 derniers
-            
-            if (filterCarLaps.length > 0) {
-                filterCarLaps.forEach(l => {
-                    // Extraction propre du "Tour #X" et du "Chrono" depuis la chaîne de caractères
-                    // Exemple de chaîne : "Tour #45 - 2:24.531 (Laurent)"
-                    let parts = l.action.split(" - ");
-                    let tourLabel = parts[0]; // "Tour #45"
-                    let chronoLabel = parts[1] ? parts[1].split(" ")[0] : "--:--.---"; // "2:24.531"
-                    
-                    hRows += `<tr style="border-bottom:1px solid #222;">
-                        <td style="padding:4px 0; color:#aaa;">${tourLabel}</td>
-                        <td style="color:${chronoLabel === localCar.bestLap ? '#a855f7' : '#fff'}; font-family:monospace;">${chronoLabel}</td>
-                        <td style="color:#64748b; font-size:11px;">${l.time}</td>
-                    </tr>`;
-                });
-            } else {
-                hRows = `<tr><td colspan="3" style="color:#444;text-align:center;padding:10px 0;">Aucun chrono détecté</td></tr>`;
-            }
+// --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (OPTIMISÉE PILOTES) ---
+let hRows = ""; 
+const hArr = localCar.history || [];
 
-                boxMonitorHtml += `
-                    <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <h2 style="font-size:32px; font-weight:900; font-family:monospace; line-height: 1.1;">#${window.carIdMapping[id]}</h2>
-                                <span style="font-size:12px; color:var(--4race-text-muted); font-weight:600; display:block; margin-top:2px;">${window.teamNameMapping[id]}</span>
-                            </div>
-                            <span id="box-badge-${id}" style="background:${coeff===0.5?'rgba(245,158,11,0.15)':'rgba(34,197,94,0.15)'}; color:${coeff===0.5?'#f59e0b':'#10b981'}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${bText}</span>
-                        </div>
-                        <div style="background:#000; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; font-size:13px;">
-                            <div><span style="color:#666; font-size:10px; display:block;">POS</span><strong>${localCar.position || '-'}</strong></div>
-                            <div style="text-align:right;"><span style="color:#666; font-size:10px; display:block;">BEST</span><strong style="color:#a855f7; font-family:monospace;">${localCar.bestLap}</strong></div>
-                        </div>
-                        <div><span style="color:#666; font-size:10px; text-transform:uppercase;">Pilote</span><div style="font-size:16px; font-weight:bold;">${pName}</div></div>
-                        
-                        <div style="display:flex; justify-content:space-between; background:#000; padding:8px 12px; border-radius:6px; font-size:12px; border: 1px solid #222;">
-                            <div><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">⏳ Temps Relais</span><strong style="color:var(--state-fcy);">${localCar.isInsidePit ? '🛒 Stand' : minutesLeft + ' min'}</strong></div>
-                            <div style="text-align:right;"><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">👤 Prochain Pilote</span><strong style="color:#a855f7;">${nextPilotName}</strong></div>
-                        </div>
+// 1. Tri et inversion pour avoir les derniers tours en premier
+const derniersTours = Array.isArray(hArr) ? [...hArr].reverse().slice(0, 5) : [];
 
-                        <div style="background:#000; padding:12px; border-radius:6px; text-align:center;">
-                            <div style="font-size:13px; color:#ccc;">Tour en cours : <strong>${localCar.currentLap}</strong></div>
-                            <div style="font-size:11px; color:#888; margin-top:2px;">Tours restants : <strong style="color:#fff;">${lapsLeft}</strong></div>
-                            <div style="font-size:13px; color:var(--4race-coral); font-weight:bold; margin-top:5px;">${document.getElementById(`target-time-${id}`).innerText}</div>
-                        </div>
-                        <div style="flex-grow:1; margin-top:5px;"><table style="width:100%; font-family:monospace; font-size:12px;"><tbody>${hRows || '<tr><td colspan="3" style="color:#444;text-align:center;">Aucun chrono</td></tr>'}</tbody></table></div>
-                    </div>
-                `;
+// Extraction du tout dernier tour pour un affichage "Flash" en gros pour le pilote
+let dernierChronoPilote = "--:--.---";
+let dernierDeltaPilote = "--.---";
+let deltaColorPilote = "#fff";
 
+if (derniersTours.length > 0) {
+    dernierChronoPilote = derniersTours[0].time || "--:--.---";
+    dernierDeltaPilote = derniersTours[0].delta || "0.000";
+    deltaColorPilote = dernierDeltaPilote.startsWith('+') ? '#ef4444' : '#10b981';
+
+    // Génération des lignes du tableau de l'historique
+    derniersTours.forEach(l => {
+        let dColor = l.delta.startsWith('+') ? '#ef4444' : '#10b981';
+        hRows += `
+            <tr style="border-bottom:1px solid #222;">
+                <td style="padding:6px 0; color:#aaa;">Tour ${l.lap}</td>
+                <td style="color:${l.time === localCar.bestLap ? '#a855f7' : '#fff'}; font-family:monospace; font-weight:700;">${l.time}</td>
+                <td style="color:${dColor}; font-family:monospace; font-weight:700; text-align:right;">${l.delta}</td>
+            </tr>
+        `;
+    });
+} else {
+    hRows = '<tr><td colspan="3" style="color:#444;text-align:center;padding:10px 0;">Aucun chrono</td></tr>';
+}
+
+boxMonitorHtml += `
+    <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h2 style="font-size:32px; font-weight:900; font-family:monospace; line-height: 1.1;">#${window.carIdMapping[id]}</h2>
+                <span style="font-size:12px; color:var(--4race-text-muted); font-weight:600; display:block; margin-top:2px;">${window.teamNameMapping[id]}</span>
+            </div>
+            <span id="box-badge-${id}" style="background:${coeff===0.5?'rgba(245,158,11,0.15)':'rgba(34,197,94,0.15)'}; color:${coeff===0.5?'#f59e0b':'#10b981'}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${bText}</span>
+        </div>
+        
+        <div style="background:#000; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; font-size:13px;">
+            <div><span style="color:#666; font-size:10px; display:block;">POS</span><strong>${localCar.position || '-'}</strong></div>
+            <div style="text-align:right;"><span style="color:#666; font-size:10px; display:block;">BEST ABSOLU</span><strong style="color:#a855f7; font-family:monospace;">${localCar.bestLap}</strong></div>
+        </div>
+        
+        <div><span style="color:#666; font-size:10px; text-transform:uppercase;">Pilote en Piste</span><div style="font-size:16px; font-weight:bold;">${pName}</div></div>
+        
+        <div style="display:flex; justify-content:space-between; background:#000; padding:8px 12px; border-radius:6px; font-size:12px; border: 1px solid #222;">
+            <div><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">⏳ Temps Relais</span><strong style="color:var(--state-fcy);">${localCar.isInsidePit ? '🛒 Stand' : minutesLeft + ' min'}</strong></div>
+            <div style="text-align:right;"><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">👤 Prochain Pilote</span><strong style="color:#a855f7;">${nextPilotName}</strong></div>
+        </div>
+
+        <!-- 🎯 ZONE COMPTEUR FLASH POUR LES PILOTES AU STAND -->
+        <div style="background:#050507; padding:12px; border-radius:6px; text-align:center; border: 1px solid #1e1e26;">
+            <span style="color:#64748b; font-size:9px; font-weight:bold; text-transform:uppercase; display:block; margin-bottom:4px;">Dernier passage (Tour ${localCar.currentLap})</span>
+            <div style="font-size:36px; font-weight:900; font-family:monospace; color:#fff; letter-spacing:-0.5px;">${dernierChronoPilote}</div>
+            <div style="font-size:20px; font-weight:800; font-family:monospace; color:${deltaColorPilote}; margin-top:2px;">Δ ${dernierDeltaPilote}</div>
+        </div>
+
+        <div style="background:#000; padding:8px; border-radius:6px; text-align:center; font-size:11px;">
+            <span style="color:#888;">Autonomie : <strong style="color:#fff;">${lapsLeft} tr</strong> | Estimation arrêt : <strong style="color:var(--4race-coral);">${document.getElementById(`target-time-${id}`).innerText.replace('🚨 STOP ESTIMÉ : ', '')}</strong></span>
+        </div>
+        
+        <div style="flex-grow:1; margin-top:5px;">
+            <table style="width:100%; font-family:monospace; font-size:12px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding-bottom:6px;">TOUR</th>
+                        <th style="text-align:left; padding-bottom:6px;">TEMPS</th>
+                        <th style="text-align:right; padding-bottom:6px;">DELTA (Δ)</th>
+                    </tr>
+                </thead>
+                <tbody>${hRows}</tbody>
+            </table>
+        </div>
+    </div>
+`;
                 // RE-SYNCHRO INPUTS TEXTES SETUP
                 if(document.getElementById(`s_${id}_1`)) {
                     document.getElementById(`s_${id}_1`).value = window.pilotsDatabase[id][1];
