@@ -860,36 +860,60 @@
                 badge.innerText = bText; badge.className = bClass;
 
          // --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (CORRIGÉE) ---
-// --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (OPTIMISÉE PILOTES) ---
+// --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (CORRIGÉE DELTA) ---
 let hRows = ""; 
 const hArr = localCar.history || [];
-
-// 1. Tri et inversion pour avoir les derniers tours en premier
-const derniersTours = Array.isArray(hArr) ? [...hArr].reverse().slice(0, 5) : [];
 
 // Extraction du tout dernier tour pour un affichage "Flash" en gros pour le pilote
 let dernierChronoPilote = "--:--.---";
 let dernierDeltaPilote = "--.---";
 let deltaColorPilote = "#fff";
 
-if (derniersTours.length > 0) {
+// Si Python envoie l'historique structuré, on l'utilise
+if (hArr && hArr.length > 0) {
+    const derniersTours = Array.isArray(hArr) ? [...hArr].reverse().slice(0, 5) : Object.values(hArr).reverse().slice(0, 5);
+    
     dernierChronoPilote = derniersTours[0].time || "--:--.---";
     dernierDeltaPilote = derniersTours[0].delta || "0.000";
     deltaColorPilote = dernierDeltaPilote.startsWith('+') ? '#ef4444' : '#10b981';
 
-    // Génération des lignes du tableau de l'historique
     derniersTours.forEach(l => {
-        let dColor = l.delta.startsWith('+') ? '#ef4444' : '#10b981';
+        let dColor = l.delta && l.delta.startsWith('+') ? '#ef4444' : '#10b981';
         hRows += `
             <tr style="border-bottom:1px solid #222;">
                 <td style="padding:6px 0; color:#aaa;">Tour ${l.lap}</td>
                 <td style="color:${l.time === localCar.bestLap ? '#a855f7' : '#fff'}; font-family:monospace; font-weight:700;">${l.time}</td>
-                <td style="color:${dColor}; font-family:monospace; font-weight:700; text-align:right;">${l.delta}</td>
+                <td style="color:${dColor}; font-family:monospace; font-weight:700; text-align:right;">${l.delta || '0.000'}</td>
             </tr>
         `;
     });
 } else {
-    hRows = '<tr><td colspan="3" style="color:#444;text-align:center;padding:10px 0;">Aucun chrono</td></tr>';
+    // Mode de secours si l'historique n'est pas encore alimenté (ce qu'on voit sur ton image)
+    const globalLogs = window.allRaceLogs || []; 
+    const carNumStr = String(window.carIdMapping[id]);
+    const filterCarLaps = globalLogs.filter(l => String(l.carNum) === carNumStr && l.action.includes("Tour #")).slice(-5).reverse();
+
+    if (filterCarLaps.length > 0) {
+        let partsDernier = filterCarLaps[0].action.split(" - ");
+        dernierChronoPilote = partsDernier[1] ? partsDernier[1].split(" ")[0] : "--:--.---";
+        dernierDeltaPilote = "Dispo au prochain tour";
+        deltaColorPilote = "#64748b";
+
+        filterCarLaps.forEach(l => {
+            let parts = l.action.split(" - ");
+            let tourLabel = parts[0].replace('Tour ', '');
+            let chronoLabel = parts[1] ? parts[1].split(" ")[0] : "--:--.---";
+            hRows += `
+                <tr style="border-bottom:1px solid #222;">
+                    <td style="padding:6px 0; color:#aaa;">${tourLabel}</td>
+                    <td style="color:${chronoLabel === localCar.bestLap ? '#a855f7' : '#fff'}; font-family:monospace;">${chronoLabel}</td>
+                    <td style="color:#64748b; font-family:monospace; font-size:11px; text-align:right;">${l.time}</td>
+                </tr>
+            `;
+        });
+    } else {
+        hRows = '<tr><td colspan="3" style="color:#444;text-align:center;padding:10px 0;">Aucun chrono détecté</td></tr>';
+    }
 }
 
 boxMonitorHtml += `
@@ -914,7 +938,7 @@ boxMonitorHtml += `
             <div style="text-align:right;"><span style="color:#666; font-size:9px; display:block; text-transform:uppercase;">👤 Prochain Pilote</span><strong style="color:#a855f7;">${nextPilotName}</strong></div>
         </div>
 
-        <!-- 🎯 ZONE COMPTEUR FLASH POUR LES PILOTES AU STAND -->
+        <!-- 🎯 AFFICHAGE FLASH DU DELTA POUR LE PILOTE -->
         <div style="background:#050507; padding:12px; border-radius:6px; text-align:center; border: 1px solid #1e1e26;">
             <span style="color:#64748b; font-size:9px; font-weight:bold; text-transform:uppercase; display:block; margin-bottom:4px;">Dernier passage (Tour ${localCar.currentLap})</span>
             <div style="font-size:36px; font-weight:900; font-family:monospace; color:#fff; letter-spacing:-0.5px;">${dernierChronoPilote}</div>
@@ -922,7 +946,7 @@ boxMonitorHtml += `
         </div>
 
         <div style="background:#000; padding:8px; border-radius:6px; text-align:center; font-size:11px;">
-            <span style="color:#888;">Autonomie : <strong style="color:#fff;">${lapsLeft} tr</strong> | Estimation arrêt : <strong style="color:var(--4race-coral);">${document.getElementById(`target-time-${id}`).innerText.replace('🚨 STOP ESTIMÉ : ', '')}</strong></span>
+            <span style="color:#888;">Autonomie : <strong style="color:#fff;">${lapsLeft} tr</strong> | Est. Arrêt : <strong style="color:var(--4race-coral);">${document.getElementById(`target-time-${id}`).innerText.replace('🚨 STOP ESTIMÉ : ', '')}</strong></span>
         </div>
         
         <div style="flex-grow:1; margin-top:5px;">
