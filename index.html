@@ -313,8 +313,8 @@
             </div>
 
             <div class="card">
-                <div class="card-title">⚙️ Paramètres Communs & Seuils</div>
-                <div class="form-row" id="setup-chassis-inputs-zone"></div>
+                <div class="card-title">⚙️ Paramètres Communs & N° Châssis / Teams</div>
+                <div style="display: flex; flex-direction: column; gap: 15px;" id="setup-chassis-inputs-zone"></div>
                 <div class="form-row" style="margin-top:15px;">
                     <div class="form-group"><label>Capacité Max utile (L)</label><input type="number" id="setup-maxFuel" value="42" step="0.5" onchange="dbPushFullRaceState()"></div>
                     <div class="form-group"><label>Temps d'arrêt obligatoire (sec)</label><input type="number" id="setup-pitSec" value="180" onchange="dbPushFullRaceState()"></div>
@@ -371,8 +371,7 @@
                 <label>Essence brûlée (L)</label>
                 <input type="number" id="drawer-flash-fuel" step="0.01" placeholder="ex: 34.50" style="font-weight: bold; font-family: monospace;">
             </div>
-       <!-- 📊 BLOC DEBRIEF FLASH CONSO OPTIMISÉ EN 2x2 -->
-            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px 16px; text-align:center;">
+       <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px 16px; text-align:center;">
                 <div style="display:flex; flex-direction:column; gap:4px;">
                     <label style="font-size:9px; color:#22C55E; font-weight:bold; text-transform:uppercase;">SEC</label>
                     <input type="number" id="drawer-flash-sec" value="0" style="padding:6px; text-align:center; font-size:11px; background:#16161f; border:1px solid var(--4race-card-border); color:#fff; border-radius:4px; width:100%;">
@@ -391,7 +390,6 @@
                 </div>
             </div>
 
-            <!-- BOUTONS D'ORIGINE CONSERVÉS -->
             <div class="form-row" style="margin-top:15px;">
                 <button class="ctrl-btn" style="background:#e67e22; color:white; font-size:11px; padding:10px 0;" onclick="executerCalculFlashDrawer()">🧮 Calculer</button>
                 <button class="ctrl-btn" id="btn-apply-flash-drawer" style="background:#7f8c8d; color:white; font-size:11px; padding:10px 0;" disabled onclick="injecterFlashDrawer()">📥 Injecter</button>
@@ -451,6 +449,7 @@
         window.enemyDatabase = [];
 
         window.carIdMapping = { v1: "531", v2: "183", v3: "156", v4: "40", v5: "77", v6: "88" };
+        window.teamNameMapping = { v1: "Team 1", v2: "Team 2", v3: "Team 3", v4: "Team 4", v5: "Team 5", v6: "Team 6" };
         window.pilotsDatabase = {
             v1: { 1: "Laurent", 2: "Julien", 3: "Clément", 4: "Sylvain" },
             v2: { 1: "Laurent", 2: "Cyprien", 3: "Benoît/ Jonathan", 4: "Jean-Charles" },
@@ -471,7 +470,7 @@
         }
 
         // INITIALISATION HTML UNIQUE SANS RÉPÉTITION
-function buildHTMLElementsStructure() {
+        function buildHTMLElementsStructure() {
             const containerCards = document.getElementById("fleet-cards-container");
             const containerChassis = document.getElementById("setup-chassis-inputs-zone");
             const containerCrews = document.getElementById("setup-crew-inputs-zone");
@@ -484,7 +483,10 @@ function buildHTMLElementsStructure() {
                 cardsHtml += `
                     <div id="card-${id}" class="car-card">
                         <div class="car-header">
-                            <button class="car-num lbl-${id}" onclick="window.openDrawer('${id}')">#${window.carIdMapping[id]}</button>
+                            <div>
+                                <button class="car-num lbl-${id}" onclick="window.openDrawer('${id}')">#${window.carIdMapping[id]}</button>
+                                <span id="fleet-team-${id}" style="font-size:12px; color:var(--4race-text-muted); font-weight:600; margin-left:8px; display:block;">${window.teamNameMapping[id]}</span>
+                            </div>
                             <span id="badge-${id}" class="status-badge badge-piste">En Piste</span>
                         </div>
                         <div class="stats-row">
@@ -534,7 +536,10 @@ function buildHTMLElementsStructure() {
                 `;
 
                 chassisHtml += `
-                    <div class="form-group" id="block-setup-${id}" style="flex:1;"><label>N° Châssis ${i}</label><input type="number" id="setup-${id}" value="${window.carIdMapping[id]}" onchange="window.updateChassisNumberFromSetup('${id}', this.value)"></div>
+                    <div id="block-setup-${id}" class="form-row" style="background: rgba(255,255,255,0.01); padding: 10px; border-radius: 8px; border: 1px solid var(--4race-card-border);">
+                        <div class="form-group"><label>N° Châssis Voie ${i}</label><input type="number" id="setup-${id}" value="${window.carIdMapping[id]}" onchange="window.updateChassisNumberFromSetup('${id}', this.value)"></div>
+                        <div class="form-group"><label>Nom Team ${i}</label><input type="text" id="setup-team-${id}" value="${window.teamNameMapping[id]}" onchange="window.updateTeamNameFromSetup('${id}', this.value)"></div>
+                    </div>
                 `;
 
                 crewsHtml += `
@@ -588,7 +593,9 @@ function buildHTMLElementsStructure() {
                     }
                     payload.cars[id] = {
                         fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, pitStartTime: car.pitStartTime || null, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
-                        consoInputs: cInputs, consoFcyInputs: cFcyInputs, carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
+                        consoInputs: cInputs, consoFcyInputs: cFcyInputs, 
+                        carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
+                        teamNameInput: document.getElementById(`setup-team-${id}`)?.value || window.teamNameMapping[id] || "",
                         pilotsInputs: { 1: document.getElementById(`s_${id}_1`)?.value || "", 2: document.getElementById(`s_${id}_2`)?.value || "", 3: document.getElementById(`s_${id}_3`)?.value || "", 4: document.getElementById(`s_${id}_4`)?.value || "" }
                     };
                 }
@@ -601,7 +608,7 @@ function buildHTMLElementsStructure() {
             set(ref(db, `logs/${now.getTime()}`), { time: now.toLocaleTimeString('fr-FR'), carNum: carNum, action: action, fuel: fuel, status: trackLabel });
         };
 
-window.dbAppliquerCircuit = function(circuitKey) {
+        window.dbAppliquerCircuit = function(circuitKey) {
             const circuit = window.circuitsDatabase[circuitKey]; 
             if (!circuit) return;
             
@@ -667,6 +674,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
                         consoInputs: cInputs, 
                         consoFcyInputs: cFcyInputs, 
                         carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
+                        teamNameInput: document.getElementById(`setup-team-${id}`)?.value || window.teamNameMapping[id] || "",
                         pilotsInputs: { 
                             1: document.getElementById(`s_${id}_1`)?.value || "", 
                             2: document.getElementById(`s_${id}_2`)?.value || "", 
@@ -784,7 +792,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
 
                 const pilotIdx = localCar.rotation[0];
                 const pName = window.pilotsDatabase[id][pilotIdx] || "-";
-               document.getElementById(`fleet-pilot-${id}`).innerText = pName;
+                document.getElementById(`fleet-pilot-${id}`).innerText = pName;
 
                 // 1. Affichage direct du carburant calculé par Python
                 const essenceActuelle = parseFloat(localCar.fuel) || 0;
@@ -860,7 +868,10 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 boxMonitorHtml += `
                     <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h2 style="font-size:32px; font-weight:900; font-family:monospace;">#${window.carIdMapping[id]}</h2>
+                            <div>
+                                <h2 style="font-size:32px; font-weight:900; font-family:monospace; line-height: 1.1;">#${window.carIdMapping[id]}</h2>
+                                <span style="font-size:12px; color:var(--4race-text-muted); font-weight:600; display:block; margin-top:2px;">${window.teamNameMapping[id]}</span>
+                            </div>
                             <span id="box-badge-${id}" style="background:${coeff===0.5?'rgba(245,158,11,0.15)':'rgba(34,197,94,0.15)'}; color:${coeff===0.5?'#f59e0b':'#10b981'}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${bText}</span>
                         </div>
                         <div style="background:#000; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; font-size:13px;">
@@ -903,7 +914,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
             if(window.activeCarIdInDrawer) window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
         }
 
-// ECOUTE PERMANENTE CLOUD FIREBASE CORRIGÉE
+        // ECOUTE PERMANENTE CLOUD FIREBASE CORRIGÉE
         onValue(ref(db, 'race_state'), (snapshot) => {
             const data = snapshot.val(); 
             if(!data) return;
@@ -937,6 +948,21 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 localCar.bestLapMs = cloudCar.bestLapMs || null;
                 localCar.history = cloudCar.history ? (Array.isArray(cloudCar.history) ? cloudCar.history : Object.values(cloudCar.history)) : [];
                 
+                // Extraction et mise à jour du numéro et du nom de l'équipe
+                window.carIdMapping[id] = cloudCar.carNumInput || window.carIdMapping[id];
+                window.teamNameMapping[id] = cloudCar.teamNameInput || "";
+                
+                // Mettre à jour les labels statiques et dynamiques du DOM
+                document.querySelectorAll(`.lbl-${id}`).forEach(el => { el.innerText = "#" + window.carIdMapping[id]; });
+                const teamLabel = document.getElementById(`fleet-team-${id}`);
+                if (teamLabel) teamLabel.innerText = window.teamNameMapping[id];
+                
+                const setupChassisInput = document.getElementById(`setup-${id}`);
+                if (setupChassisInput && document.activeElement !== setupChassisInput) setupChassisInput.value = window.carIdMapping[id];
+                
+                const setupTeamInput = document.getElementById(`setup-team-${id}`);
+                if (setupTeamInput && document.activeElement !== setupTeamInput) setupTeamInput.value = window.teamNameMapping[id];
+
                 // EXTRACTION DU CLASSEMENT ENVOYÉ PAR LE LIVE TIMING PYTHON
                 localCar.position = cloudCar.position || "-";
                 const posWidget = document.getElementById(`fleet-pos-${id}`);
@@ -1013,7 +1039,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
             for(let i=1; i<=6; i++) {
                 let id = "v" + i;
                 if(document.getElementById(`card-${id}`)) document.getElementById(`card-${id}`).style.display = i<=nb?"flex":"none";
-                if(document.getElementById(`block-setup-${id}`)) document.getElementById(`block-setup-${id}`).style.display = i<=nb?"flex":"none";
+                if(document.getElementById(`block-setup-${id}`)) document.getElementById(`block-setup-${id}`).style.display = i<=nb?"grid":"none";
                 if(document.getElementById(`crew-${id}`)) document.getElementById(`crew-${id}`).style.display = i<=nb?"block":"none";
             }
             const bg = document.getElementById("box-monitor-grid"); if(bg) bg.style.gridTemplateColumns = `repeat(${nb<=4?nb:3}, 1fr)`;
@@ -1023,6 +1049,13 @@ window.dbAppliquerCircuit = function(circuitKey) {
         window.updateChassisNumberFromSetup = function(id, val) {
             window.carIdMapping[id] = val;
             document.querySelectorAll(`.lbl-${id}`).forEach(el => { el.innerText = "#" + val; });
+            window.dbPushFullRaceState();
+        };
+
+        window.updateTeamNameFromSetup = function(id, val) {
+            window.teamNameMapping[id] = val;
+            const teamLabel = document.getElementById(`fleet-team-${id}`);
+            if (teamLabel) teamLabel.innerText = val;
             window.dbPushFullRaceState();
         };
 
