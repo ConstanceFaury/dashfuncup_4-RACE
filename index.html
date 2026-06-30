@@ -784,8 +784,18 @@ window.dbAppliquerCircuit = function(circuitKey) {
 
                 const pilotIdx = localCar.rotation[0];
                 const pName = window.pilotsDatabase[id][pilotIdx] || "-";
-                document.getElementById(`fleet-pilot-${id}`).innerText = pName;
-                document.getElementById(`fuel-val-${id}`).innerText = localCar.fuel.toFixed(1) + "L";
+               document.getElementById(`fleet-pilot-${id}`).innerText = pName;
+
+                // 1. Affichage direct du carburant calculé par Python
+                const essenceActuelle = parseFloat(localCar.fuel) || 0;
+                document.getElementById(`fuel-val-${id}`).innerText = essenceActuelle.toFixed(1) + "L";
+                
+                // 2. Forcer la mise à jour de la barre de progression verte
+                document.getElementById(`bar-${id}`).style.width = ((essenceActuelle / maxFuel) * 100) + "%";
+                
+                // 3. Forcer l'affichage du tour en cours envoyé par le simulateur
+                const tourActuel = parseInt(localCar.currentLap) || 0;
+                const targetLapBadge = document.getElementById(`predict-box-${id}`);
 
                 let coeff = window.weatherMode === "forte_pluie" ? 0.40 : (window.isFCY ? 0.50 : (window.weatherMode === "pluie_moderee" ? 0.75 : 1.0));
                 let currentConso = (localCar.conso[pilotIdx]?.sec || 1.77) * coeff; if(window.isRedFlag) currentConso = 0;
