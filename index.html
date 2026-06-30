@@ -893,22 +893,32 @@ window.dbAppliquerCircuit = function(circuitKey) {
             if(window.activeCarIdInDrawer) window.refreshDrawerPlanifier(window.activeCarIdInDrawer);
         }
 
-        // ECOUTE PERMANENTE CLOUD FIREBASE
+// ECOUTE PERMANENTE CLOUD FIREBASE CORRIGÉE
         onValue(ref(db, 'race_state'), (snapshot) => {
+            const data = snapshot.val(); 
+            if(!data) return;
+
             window.fleetState.track_ref_sec = data.track_ref_sec || 185;
             window.fleetState.track_ref_pluie = data.track_ref_pluie || 205;
-            const data = snapshot.val(); if(!data) return;
-            window.isFCY = data.isFCY || false; window.isRedFlag = data.isRedFlag || false; window.weatherMode = data.weatherMode || "sec"; window.enemyDatabase = data.enemyDatabase || [];
             
-            // CORRECTIF 1 : LECTURE DIRECTE DU LIVE BANDEAU TEXTE ENVOYÉ PAR PYTHON
+            window.isFCY = data.isFCY || false; 
+            window.isRedFlag = data.isRedFlag || false; 
+            window.weatherMode = data.weatherMode || "sec"; 
+            window.enemyDatabase = data.enemyDatabase || [];
+            
+            // LECTURE DIRECTE DU LIVE BANDEAU TEXTE ENVOYÉ PAR PYTHON
             if (data.rc_comment) document.getElementById("rc-text-content").innerText = "RC_MESSAGE: " + data.rc_comment;
             if (data.rc_time) document.getElementById("rc-time-badge").innerText = data.rc_time;
 
             for(let i=1; i<=6; i++) {
-                let id = "v" + i; if(!data.cars || !data.cars[id]) continue;
-                const cloudCar = data.cars[id]; const localCar = window.fleetState[id];
+                let id = "v" + i; 
+                if(!data.cars || !data.cars[id]) continue;
+                
+                const cloudCar = data.cars[id]; 
+                const localCar = window.fleetState[id];
 
-                localCar.fuel = parseFloat(cloudCar.fuel) || 42.0;
+                // Synchronisation forcée des valeurs calculées par Python
+                localCar.fuel = parseFloat(cloudCar.fuel) !== undefined ? parseFloat(cloudCar.fuel) : 42.0;
                 localCar.currentLap = parseInt(cloudCar.currentLap) || 0;
                 localCar.hasAlerted = cloudCar.hasAlerted || false;
                 localCar.rotation = cloudCar.rotation || ["1", "2", "3", "4"];
@@ -917,7 +927,7 @@ window.dbAppliquerCircuit = function(circuitKey) {
                 localCar.bestLapMs = cloudCar.bestLapMs || null;
                 localCar.history = cloudCar.history ? (Array.isArray(cloudCar.history) ? cloudCar.history : Object.values(cloudCar.history)) : [];
                 
-                // CORRECTIF 2 : EXTRACTION DU CLASSEMENT ENVOYÉ PAR LE LIVE TIMING PYTHON
+                // EXTRACTION DU CLASSEMENT ENVOYÉ PAR LE LIVE TIMING PYTHON
                 localCar.position = cloudCar.position || "-";
                 const posWidget = document.getElementById(`fleet-pos-${id}`);
                 if(posWidget) posWidget.innerText = localCar.position;
@@ -936,7 +946,6 @@ window.dbAppliquerCircuit = function(circuitKey) {
             }
             updateVisualsFromState();
         });
-
         onValue(ref(db, 'logs'), (snapshot) => {
             const logs = snapshot.val(); const tbody = document.getElementById('fleetLogBody');
             if(tbody && logs) {
