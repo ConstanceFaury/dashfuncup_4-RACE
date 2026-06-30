@@ -859,11 +859,33 @@
                 }
                 badge.innerText = bText; badge.className = bClass;
 
-                // --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE ---
-                let hRows = ""; const hArr = localCar.history || [];
-                hArr.slice(-5).reverse().forEach(l => {
-                    hRows += `<tr style="border-bottom:1px solid #222;"><td style="padding:4px 0;">Tour ${l.lap}</td><td style="color:${l.time===localCar.bestLap?'#a855f7':'#fff'}">${l.time}</td><td style="color:${l.delta.startsWith('+')?'#ef4444':'#10b981'}">${l.delta}</td></tr>`;
+         // --- CONSTRUCTION DYNAMIQUE VUE BOX TV PASSIVE (CORRIGÉE) ---
+            let hRows = ""; 
+            // On va chercher les derniers chronos de CETTE voiture dans les logs de la course
+            const globalLogs = window.allRaceLogs || []; 
+            const carNumStr = String(window.carIdMapping[id]);
+            
+            const filterCarLaps = globalLogs
+                .filter(l => String(l.carNum) === carNumStr && l.action.includes("Tour #"))
+                .slice(-5); // On prend les 5 derniers
+            
+            if (filterCarLaps.length > 0) {
+                filterCarLaps.forEach(l => {
+                    // Extraction propre du "Tour #X" et du "Chrono" depuis la chaîne de caractères
+                    // Exemple de chaîne : "Tour #45 - 2:24.531 (Laurent)"
+                    let parts = l.action.split(" - ");
+                    let tourLabel = parts[0]; // "Tour #45"
+                    let chronoLabel = parts[1] ? parts[1].split(" ")[0] : "--:--.---"; // "2:24.531"
+                    
+                    hRows += `<tr style="border-bottom:1px solid #222;">
+                        <td style="padding:4px 0; color:#aaa;">${tourLabel}</td>
+                        <td style="color:${chronoLabel === localCar.bestLap ? '#a855f7' : '#fff'}; font-family:monospace;">${chronoLabel}</td>
+                        <td style="color:#64748b; font-size:11px;">${l.time}</td>
+                    </tr>`;
                 });
+            } else {
+                hRows = `<tr><td colspan="3" style="color:#444;text-align:center;padding:10px 0;">Aucun chrono détecté</td></tr>`;
+            }
 
                 boxMonitorHtml += `
                     <div style="background:#111; border:1px solid #222; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
@@ -984,6 +1006,7 @@
             const logs = snapshot.val(); const tbody = document.getElementById('fleetLogBody');
             if(tbody && logs) {
                 tbody.innerHTML = "";
+                window.allRaceLogs = Object.values(logs);
                 Object.values(logs).slice(-45).reverse().forEach(l => {
                     tbody.innerHTML += `<tr><td>${l.time}</td><td><strong style="color:var(--4race-coral);">#${l.carNum}</strong></td><td>${l.action}</td><td class="monospace">${l.fuel}</td><td>${l.status}</td></tr>`;
                 });
