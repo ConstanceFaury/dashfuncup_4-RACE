@@ -583,26 +583,45 @@
         };
 
         window.dbPushFullRaceState = function() {
-            try {
-                const payload = { weatherMode: window.weatherMode, isFCY: window.isFCY, isRedFlag: window.isRedFlag, enemyDatabase: window.enemyDatabase, cars: {} };
-                for(let i=1; i<=window.currentCarCount; i++) {
-                    let id = "v" + i; const car = window.fleetState[id];
-                    const cInputs = {}; const cFcyInputs = {};
-                    for(let p=1; p<=4; p++) {
-                        let bSec = parseFloat(car.conso[p]?.sec) || 1.77;
-                        cInputs[String(p)] = bSec; cFcyInputs[String(p)] = bSec * 0.5;
-                    }
-                    payload.cars[id] = {
-                        fuel: car.fuel, currentLap: car.currentLap, isInsidePit: car.isInsidePit, pitSeconds: car.pitSeconds, pitStartTime: car.pitStartTime || null, hasAlerted: car.hasAlerted, rotation: car.rotation, conso: car.conso, bestLap: car.bestLap, bestLapMs: car.bestLapMs || 0, history: car.history || [],
-                        consoInputs: cInputs, consoFcyInputs: cFcyInputs, 
-                        carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
-                        teamNameInput: document.getElementById(`setup-team-${id}`)?.value || window.teamNameMapping[id] || "",
-                        pilotsInputs: { 1: document.getElementById(`s_${id}_1`)?.value || "", 2: document.getElementById(`s_${id}_2`)?.value || "", 3: document.getElementById(`s_${id}_3`)?.value || "", 4: document.getElementById(`s_${id}_4`)?.value || "" }
-                    };
-                }
-                set(ref(db, 'race_state'), payload);
-            } catch(e) { console.error(e); }
-        };
+    try {
+        const payload = { weatherMode: window.weatherMode, isFCY: window.isFCY, isRedFlag: window.isRedFlag, enemyDatabase: window.enemyDatabase, cars: {} };
+        for(let i=1; i<=window.currentCarCount; i++) {
+            let id = "v" + i; const car = window.fleetState[id];
+            const cInputs = {}; const cFcyInputs = {};
+            for(let p=1; p<=4; p++) {
+                let bSec = parseFloat(car.conso[p]?.sec) || 1.77;
+                cInputs[String(p)] = bSec; cFcyInputs[String(p)] = bSec * 0.5;
+            }
+
+            // --- AJOUT DE SÉCURITÉ POUR PYTHON ---
+            let modeChoisi = "full"; 
+            if (document.getElementById(`rad-none-${id}`)?.checked) modeChoisi = "none";
+            if (document.getElementById(`rad-partial-${id}`)?.checked) modeChoisi = "partial";
+            // -------------------------------------
+
+            payload.cars[id] = {
+                fuel: car.fuel,
+                fuelMode: modeChoisi, // <--- ON ENVOIE LE MODE À PYTHON ICI
+                currentLap: car.currentLap, 
+                isInsidePit: car.isInsidePit, 
+                pitSeconds: car.pitSeconds, 
+                pitStartTime: car.pitStartTime || null, 
+                hasAlerted: car.hasAlerted, 
+                rotation: car.rotation, 
+                conso: car.conso, 
+                bestLap: car.bestLap, 
+                bestLapMs: car.bestLapMs || 0, 
+                history: car.history || [],
+                consoInputs: cInputs, 
+                consoFcyInputs: cFcyInputs, 
+                carNumInput: document.getElementById(`setup-${id}`)?.value || window.carIdMapping[id],
+                teamNameInput: document.getElementById(`setup-team-${id}`)?.value || window.teamNameMapping[id] || "",
+                pilotsInputs: { 1: document.getElementById(`s_${id}_1`)?.value || "", 2: document.getElementById(`s_${id}_2`)?.value || "", 3: document.getElementById(`s_${id}_3`)?.value || "", 4: document.getElementById(`s_${id}_4`)?.value || "" }
+            };
+        }
+        set(ref(db, 'race_state'), payload);
+    } catch(e) { console.error(e); }
+};
 
         window.dbLogLiveEventCloud = function(carNum, action, fuel, trackLabel) {
             const now = new Date();
